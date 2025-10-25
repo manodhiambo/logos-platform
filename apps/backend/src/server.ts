@@ -20,9 +20,11 @@ import { notFound } from './shared/middlewares/not-found.middleware';
 
 // Import routes
 import authRoutes from './modules/auth/routes/auth.routes';
+import adminRoutes from './modules/admin/routes/admin.routes';
 
 // Import models (to register them)
 import './database/models/user.model';
+import './database/models/announcement.model';
 
 // Initialize Express app
 const app: Application = express();
@@ -83,19 +85,21 @@ app.get('/health', async (req: Request, res: Response) => {
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
   res.json({
-    message: 'LOGOS Platform API',
+    message: 'LOGOS Platform API - Christian Community',
     version: '1.0.0',
     documentation: '/api/docs',
     endpoints: {
       health: '/health',
       api: '/api/v1',
       auth: '/api/v1/auth',
+      admin: '/api/v1/admin',
     },
   });
 });
 
 // API Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -111,19 +115,16 @@ io.on('connection', socket => {
     logger.info(`Client disconnected: ${socket.id}`);
   });
 
-  // Join user room for personal notifications
   socket.on('join-user-room', (userId: string) => {
     socket.join(`user-${userId}`);
     logger.info(`User ${userId} joined their personal room`);
   });
 
-  // Join community room
   socket.on('join-community', (communityId: string) => {
     socket.join(`community-${communityId}`);
     logger.info(`User joined community: ${communityId}`);
   });
 
-  // Leave community room
   socket.on('leave-community', (communityId: string) => {
     socket.leave(`community-${communityId}`);
     logger.info(`User left community: ${communityId}`);
@@ -135,27 +136,25 @@ const startServer = async () => {
   try {
     logger.info('🚀 Starting LOGOS Platform Backend...');
 
-    // Test database connection
     const dbConnected = await testConnection();
     if (!dbConnected) {
       throw new Error('Database connection failed');
     }
 
-    // Sync database models (only in development)
     if (config.env === 'development') {
       await sequelize.sync({ alter: false });
       logger.info('✅ Database models synchronized');
     }
 
-    // Start server
     httpServer.listen(PORT, () => {
-      logger.info('='.repeat(50));
+      logger.info('='.repeat(60));
       logger.info(`✅ Server is running on port ${PORT}`);
       logger.info(`📝 Environment: ${config.env}`);
       logger.info(`🌐 API URL: http://localhost:${PORT}/api/v1`);
       logger.info(`💚 Health Check: http://localhost:${PORT}/health`);
       logger.info(`🔐 Auth Routes: http://localhost:${PORT}/api/v1/auth`);
-      logger.info('='.repeat(50));
+      logger.info(`👑 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
+      logger.info('='.repeat(60));
     });
   } catch (error) {
     logger.error('❌ Unable to start server:', error);
@@ -163,19 +162,16 @@ const startServer = async () => {
   }
 };
 
-// Handle uncaught exceptions
 process.on('uncaughtException', (error: Error) => {
   logger.error('💥 Uncaught Exception:', error);
   process.exit(1);
 });
 
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason: any) => {
   logger.error('💥 Unhandled Rejection:', reason);
   process.exit(1);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('⚠️  SIGTERM received, closing server gracefully...');
   httpServer.close(async () => {
@@ -206,7 +202,6 @@ process.on('SIGINT', async () => {
   });
 });
 
-// Start the server
 startServer();
 
 export { app, io };

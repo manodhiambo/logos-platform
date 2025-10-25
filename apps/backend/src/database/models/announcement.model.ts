@@ -161,3 +161,11 @@ Announcement.init(
 );
 
 export default Announcement;
+
+// Set up associations
+import User from './user.model';
+
+Announcement.belongsTo(User, {
+  foreignKey: 'authorId',
+  as: 'author',
+});
