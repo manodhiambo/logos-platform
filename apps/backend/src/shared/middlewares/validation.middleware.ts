@@ -1,8 +1,28 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { validationResult, ValidationChain } from 'express-validator';
 import Joi from 'joi';
 import { AppError } from './error-handler.middleware';
 
-export const validate = (schema: Joi.ObjectSchema) => {
+// Express-validator validation middleware (for arrays of validation chains)
+export const validate: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
+  const errors = validationResult(req);
+  
+  if (!errors.isEmpty()) {
+    const formattedErrors = errors.array().map(error => ({
+      field: error.type === 'field' ? (error as any).path : 'unknown',
+      message: error.msg,
+    }));
+    
+    const appError = new AppError('Validation failed', 400);
+    (appError as any).details = formattedErrors;
+    return next(appError);
+  }
+  
+  next();
+};
+
+// Joi validation middleware (for Joi schemas - used by auth routes)
+export const validateWithJoi = (schema: Joi.ObjectSchema): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     const { error, value } = schema.validate(
       {
@@ -35,3 +55,6 @@ export const validate = (schema: Joi.ObjectSchema) => {
     next();
   };
 };
+
+// Export both for backward compatibility
+export { validateWithJoi as validateJoi };

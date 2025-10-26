@@ -21,10 +21,14 @@ import { notFound } from './shared/middlewares/not-found.middleware';
 // Import routes
 import authRoutes from './modules/auth/routes/auth.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
+import communityRoutes from './modules/community/routes/community.routes';
 
 // Import models (to register them)
 import './database/models/user.model';
 import './database/models/announcement.model';
+
+// Import community model associations
+import './modules/community/models/associations';
 
 // Initialize Express app
 const app: Application = express();
@@ -93,6 +97,7 @@ app.get('/', (req: Request, res: Response) => {
       api: '/api/v1',
       auth: '/api/v1/auth',
       admin: '/api/v1/admin',
+      communities: '/api/v1/communities',
     },
   });
 });
@@ -100,6 +105,7 @@ app.get('/', (req: Request, res: Response) => {
 // API Routes
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/communities', communityRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -154,6 +160,7 @@ const startServer = async () => {
       logger.info(`💚 Health Check: http://localhost:${PORT}/health`);
       logger.info(`🔐 Auth Routes: http://localhost:${PORT}/api/v1/auth`);
       logger.info(`👑 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
+      logger.info(`🏘️  Community Routes: http://localhost:${PORT}/api/v1/communities`);
       logger.info('='.repeat(60));
     });
   } catch (error) {

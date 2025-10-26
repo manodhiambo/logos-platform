@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { adminController } from '../controllers/admin.controller';
 import { authenticate, requireAdmin, requireSuperAdmin } from '../../../shared/middlewares/auth.middleware';
-import { validate } from '../../../shared/middlewares/validation.middleware';
+import { validateWithJoi } from '../../../shared/middlewares/validation.middleware';
 import {
   updateUserRoleSchema,
   updateUserStatusSchema,
@@ -20,38 +20,38 @@ router.use(authenticate);
 
 // USER MANAGEMENT ROUTES
 // Get all users (Admin only)
-router.get('/users', requireAdmin, validate(getUsersListSchema), adminController.getAllUsers);
+router.get('/users', requireAdmin, validateWithJoi(getUsersListSchema), adminController.getAllUsers);
 
 // Get user by ID (Admin only)
 router.get('/users/:userId', requireAdmin, adminController.getUserById);
 
 // Create user manually (Admin only)
-router.post('/users', requireAdmin, validate(createUserSchema), adminController.createUser);
+router.post('/users', requireAdmin, validateWithJoi(createUserSchema), adminController.createUser);
 
 // Update user role (Super Admin only for admin roles)
-router.put('/users/:userId/role', requireAdmin, validate(updateUserRoleSchema), adminController.updateUserRole);
+router.put('/users/:userId/role', requireAdmin, validateWithJoi(updateUserRoleSchema), adminController.updateUserRole);
 
 // Update user status (Admin only)
-router.put('/users/:userId/status', requireAdmin, validate(updateUserStatusSchema), adminController.updateUserStatus);
+router.put('/users/:userId/status', requireAdmin, validateWithJoi(updateUserStatusSchema), adminController.updateUserStatus);
 
 // Delete user (Admin only)
-router.delete('/users/:userId', requireAdmin, validate(deleteUserSchema), adminController.deleteUser);
+router.delete('/users/:userId', requireAdmin, validateWithJoi(deleteUserSchema), adminController.deleteUser);
 
 // ANNOUNCEMENT ROUTES
 // Get all announcements (Admin only)
 router.get('/announcements', requireAdmin, adminController.getAllAnnouncements);
 
 // Create announcement (Admin only)
-router.post('/announcements', requireAdmin, validate(createAnnouncementSchema), adminController.createAnnouncement);
+router.post('/announcements', requireAdmin, validateWithJoi(createAnnouncementSchema), adminController.createAnnouncement);
 
 // Update announcement (Admin only)
-router.put('/announcements/:announcementId', requireAdmin, validate(updateAnnouncementSchema), adminController.updateAnnouncement);
+router.put('/announcements/:announcementId', requireAdmin, validateWithJoi(updateAnnouncementSchema), adminController.updateAnnouncement);
 
 // Delete announcement (Admin only)
 router.delete('/announcements/:announcementId', requireAdmin, adminController.deleteAnnouncement);
 
 // SYSTEM STATISTICS
 // Get system stats (Admin only)
-router.get('/stats', requireAdmin, validate(getSystemStatsSchema), adminController.getSystemStats);
+router.get('/stats', requireAdmin, validateWithJoi(getSystemStatsSchema), adminController.getSystemStats);
 
 export default router;
