@@ -1,4 +1,4 @@
-import { DataTypes, Model, Optional } from 'sequelize';
+import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../../config/database.config';
 
 export enum AnnouncementType {
@@ -32,25 +32,7 @@ export interface AnnouncementAttributes {
   updatedAt?: Date;
 }
 
-interface AnnouncementCreationAttributes
-  extends Optional
-    AnnouncementAttributes,
-    | 'id'
-    | 'status'
-    | 'priority'
-    | 'targetCommunityId'
-    | 'isGlobal'
-    | 'publishedAt'
-    | 'expiresAt'
-    | 'viewCount'
-    | 'createdAt'
-    | 'updatedAt'
-  > {}
-
-class Announcement
-  extends Model<AnnouncementAttributes, AnnouncementCreationAttributes>
-  implements AnnouncementAttributes
-{
+class Announcement extends Model<AnnouncementAttributes> implements AnnouncementAttributes {
   public id!: string;
   public title!: string;
   public content!: string;
@@ -161,11 +143,3 @@ Announcement.init(
 );
 
 export default Announcement;
-
-// Set up associations
-import User from './user.model';
-
-Announcement.belongsTo(User, {
-  foreignKey: 'authorId',
-  as: 'author',
-});

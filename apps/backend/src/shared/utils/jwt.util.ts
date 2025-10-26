@@ -16,21 +16,18 @@ export interface TokenPair {
 }
 
 class JWTUtil {
-  // Generate access token
   generateAccessToken(payload: JWTPayload): string {
     return jwt.sign(payload, config.jwt.secret, {
       expiresIn: config.jwt.expiresIn,
-    });
+    } as jwt.SignOptions);
   }
 
-  // Generate refresh token
   generateRefreshToken(payload: JWTPayload): string {
     return jwt.sign(payload, config.jwt.refreshSecret, {
       expiresIn: config.jwt.refreshExpiresIn,
-    });
+    } as jwt.SignOptions);
   }
 
-  // Generate both tokens
   generateTokenPair(payload: JWTPayload): TokenPair {
     return {
       accessToken: this.generateAccessToken(payload),
@@ -38,7 +35,6 @@ class JWTUtil {
     };
   }
 
-  // Verify access token
   verifyAccessToken(token: string): JWTPayload {
     try {
       return jwt.verify(token, config.jwt.secret) as JWTPayload;
@@ -47,7 +43,6 @@ class JWTUtil {
     }
   }
 
-  // Verify refresh token
   verifyRefreshToken(token: string): JWTPayload {
     try {
       return jwt.verify(token, config.jwt.refreshSecret) as JWTPayload;
@@ -56,17 +51,14 @@ class JWTUtil {
     }
   }
 
-  // Generate email verification token
   generateEmailVerificationToken(): string {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  // Generate password reset token
   generatePasswordResetToken(): string {
     return crypto.randomBytes(32).toString('hex');
   }
 
-  // Hash token for storage
   hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
