@@ -22,6 +22,7 @@ import { notFound } from './shared/middlewares/not-found.middleware';
 import authRoutes from './modules/auth/routes/auth.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
 import communityRoutes from './modules/community/routes/community.routes';
+import aiRoutes from './modules/ai-assistant/routes/ai.routes';
 
 // Import models (to register them)
 import './database/models/user.model';
@@ -29,6 +30,7 @@ import './database/models/announcement.model';
 
 // Import community model associations
 import './modules/community/models/associations';
+import './modules/ai-assistant/models/associations';
 
 // Initialize Express app
 const app: Application = express();
@@ -98,6 +100,7 @@ app.get('/', (req: Request, res: Response) => {
       auth: '/api/v1/auth',
       admin: '/api/v1/admin',
       communities: '/api/v1/communities',
+      ai: '/api/v1/ai',
     },
   });
 });
@@ -106,6 +109,7 @@ app.get('/', (req: Request, res: Response) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/communities', communityRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -161,6 +165,7 @@ const startServer = async () => {
       logger.info(`🔐 Auth Routes: http://localhost:${PORT}/api/v1/auth`);
       logger.info(`👑 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
       logger.info(`🏘️  Community Routes: http://localhost:${PORT}/api/v1/communities`);
+      logger.info(`🤖 AI Routes: http://localhost:${PORT}/api/v1/ai`);
       logger.info('='.repeat(60));
     });
   } catch (error) {
