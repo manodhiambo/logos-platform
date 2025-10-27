@@ -23,6 +23,8 @@ import authRoutes from './modules/auth/routes/auth.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
 import communityRoutes from './modules/community/routes/community.routes';
 import aiRoutes from './modules/ai-assistant/routes/ai.routes';
+import bibleRoutes from './modules/bible/routes/bible.routes';
+import postRoutes from './modules/posts/routes/post.routes';
 
 // Import models (to register them)
 import './database/models/user.model';
@@ -31,6 +33,7 @@ import './database/models/announcement.model';
 // Import community model associations
 import './modules/community/models/associations';
 import './modules/ai-assistant/models/associations';
+import './modules/posts/models/associations';
 
 // Initialize Express app
 const app: Application = express();
@@ -101,6 +104,8 @@ app.get('/', (req: Request, res: Response) => {
       admin: '/api/v1/admin',
       communities: '/api/v1/communities',
       ai: '/api/v1/ai',
+      bible: '/api/v1/bible',
+      posts: '/api/v1/posts',
     },
   });
 });
@@ -110,6 +115,8 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/communities', communityRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/bible', bibleRoutes);
+app.use('/api/v1/posts', postRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -166,6 +173,8 @@ const startServer = async () => {
       logger.info(`👑 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
       logger.info(`🏘️  Community Routes: http://localhost:${PORT}/api/v1/communities`);
       logger.info(`🤖 AI Routes: http://localhost:${PORT}/api/v1/ai`);
+      logger.info(`📖 Bible Routes: http://localhost:${PORT}/api/v1/bible`);
+      logger.info(`💬 Posts Routes: http://localhost:${PORT}/api/v1/posts`);
       logger.info('='.repeat(60));
     });
   } catch (error) {

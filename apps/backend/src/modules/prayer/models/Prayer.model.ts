@@ -1,35 +1,37 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../../../config/database.config';
 
-interface PostLikeAttributes {
+interface PrayerAttributes {
   id: string;
-  postId: string;
+  prayerRequestId: string;
   userId: string;
-  createdAt?: Date;
+  message?: string;
+  prayedAt?: Date;
 }
 
-interface PostLikeCreationAttributes extends Optional<PostLikeAttributes, 'id' | 'createdAt'> {}
+interface PrayerCreationAttributes extends Optional<PrayerAttributes, 'id' | 'prayedAt'> {}
 
-class PostLike extends Model<PostLikeAttributes, PostLikeCreationAttributes> implements PostLikeAttributes {
+class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes> implements PrayerAttributes {
   public id!: string;
-  public postId!: string;
+  public prayerRequestId!: string;
   public userId!: string;
-  public readonly createdAt!: Date;
+  public message?: string;
+  public readonly prayedAt!: Date;
 }
 
-PostLike.init(
+Prayer.init(
   {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    postId: {
+    prayerRequestId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'post_id',
+      field: 'prayer_request_id',
       references: {
-        model: 'posts',
+        model: 'prayer_requests',
         key: 'id',
       },
     },
@@ -42,18 +44,22 @@ PostLike.init(
         key: 'id',
       },
     },
-    createdAt: {
+    message: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    prayedAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
-      field: 'created_at',
+      field: 'prayed_at',
     },
   },
   {
     sequelize,
-    tableName: 'post_likes',
+    tableName: 'prayers',
     timestamps: false,
     underscored: true,
   }
 );
 
-export default PostLike;
+export default Prayer;
