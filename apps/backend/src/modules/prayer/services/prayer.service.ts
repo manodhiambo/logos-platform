@@ -211,7 +211,7 @@ class PrayerService {
     const prayer = await Prayer.create({
       prayerRequestId: requestId,
       userId,
-      message: message || null,
+      message: message || undefined,
     });
 
     // Increment prayer count

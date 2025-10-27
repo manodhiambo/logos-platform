@@ -25,6 +25,9 @@ import communityRoutes from './modules/community/routes/community.routes';
 import aiRoutes from './modules/ai-assistant/routes/ai.routes';
 import bibleRoutes from './modules/bible/routes/bible.routes';
 import postRoutes from './modules/posts/routes/post.routes';
+import prayerRoutes from './modules/prayer/routes/prayer.routes';
+import devotionalRoutes from './modules/devotional/routes/devotional.routes';
+import notificationRoutes from './modules/notifications/routes/notification.routes';
 
 // Import models (to register them)
 import './database/models/user.model';
@@ -34,6 +37,9 @@ import './database/models/announcement.model';
 import './modules/community/models/associations';
 import './modules/ai-assistant/models/associations';
 import './modules/posts/models/associations';
+import './modules/prayer/models/associations';
+import './modules/devotional/models/associations';
+import './modules/notifications/models/associations';
 
 // Initialize Express app
 const app: Application = express();
@@ -106,6 +112,9 @@ app.get('/', (req: Request, res: Response) => {
       ai: '/api/v1/ai',
       bible: '/api/v1/bible',
       posts: '/api/v1/posts',
+      prayers: '/api/v1/prayers',
+      devotionals: '/api/v1/devotionals',
+      notifications: '/api/v1/notifications',
     },
   });
 });
@@ -117,6 +126,9 @@ app.use('/api/v1/communities', communityRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/bible', bibleRoutes);
 app.use('/api/v1/posts', postRoutes);
+app.use('/api/v1/prayers', prayerRoutes);
+app.use('/api/v1/devotionals', devotionalRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // 404 handler
 app.use(notFound);
@@ -175,6 +187,9 @@ const startServer = async () => {
       logger.info(`🤖 AI Routes: http://localhost:${PORT}/api/v1/ai`);
       logger.info(`📖 Bible Routes: http://localhost:${PORT}/api/v1/bible`);
       logger.info(`💬 Posts Routes: http://localhost:${PORT}/api/v1/posts`);
+      logger.info(`🙏 Prayer Routes: http://localhost:${PORT}/api/v1/prayers`);
+      logger.info(`📖 Devotional Routes: http://localhost:${PORT}/api/v1/devotionals`);
+      logger.info(`🔔 Notification Routes: http://localhost:${PORT}/api/v1/notifications`);
       logger.info('='.repeat(60));
     });
   } catch (error) {
