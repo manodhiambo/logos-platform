@@ -35,14 +35,12 @@ const transports = [
   new winston.transports.Console({
     format: winston.format.combine(winston.format.colorize(), format),
   }),
-
   // Error log file
   new winston.transports.File({
     filename: path.join(__dirname, '../../logs/error.log'),
     level: 'error',
     format: winston.format.combine(winston.format.uncolorize(), format),
   }),
-
   // Combined log file
   new winston.transports.File({
     filename: path.join(__dirname, '../../logs/combined.log'),
@@ -52,7 +50,7 @@ const transports = [
 
 // Create logger instance
 export const logger = winston.createLogger({
-  level: config.logging.level,
+  level: config.nodeEnv === 'development' ? 'debug' : 'info',
   levels,
   format,
   transports,
