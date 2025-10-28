@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -22,7 +22,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(emailOrUsername, password);
       setSuccess('Login successful! Redirecting...');
     } catch (err: any) {
       const errorMessage = err.message || 'Login failed. Please try again.';
@@ -40,7 +40,7 @@ export default function LoginPage() {
             Sign In to LOGOS
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access your account
+            Enter your email or username to access your account
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -60,16 +60,16 @@ export default function LoginPage() {
             )}
             
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
+              <label htmlFor="emailOrUsername" className="text-sm font-medium">
+                Email or Username
               </label>
               <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                value={email}
+                id="emailOrUsername"
+                type="text"
+                placeholder="john@example.com or johndoe"
+                value={emailOrUsername}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  setEmailOrUsername(e.target.value);
                   setError('');
                   setSuccess('');
                 }}

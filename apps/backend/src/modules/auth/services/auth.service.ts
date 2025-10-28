@@ -27,7 +27,7 @@ class AuthService {
       throw new Error('Username is already taken');
     }
 
-    // Hash password
+    // Hash password - DON'T use beforeCreate hook, hash manually
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
     // Create user with email auto-verified for testing
@@ -75,15 +75,27 @@ class AuthService {
   }
 
   /**
-   * Login user
+   * Login user - accepts email OR username
    */
-  async login(email: string, password: string) {
-    // Find user
-    const user = await User.findOne({ where: { email } });
+  async login(emailOrUsername: string, password: string) {
+    logger.info(`Login attempt for: ${emailOrUsername}`);
+    
+    // Find user by email or username
+    const user = await User.findOne({ 
+      where: { 
+        [Op.or]: [
+          { email: emailOrUsername },
+          { username: emailOrUsername }
+        ]
+      } 
+    });
 
     if (!user) {
-      throw new Error('Invalid email or password');
+      logger.warn(`User not found: ${emailOrUsername}`);
+      throw new Error('Invalid email/username or password');
     }
+
+    logger.info(`User found: ${user.email}, checking password...`);
 
     // Check if account is active
     if (user.status !== UserStatus.ACTIVE) {
@@ -91,10 +103,15 @@ class AuthService {
     }
 
     // Verify password
+    logger.info(`Comparing password for user: ${user.email}`);
+    logger.info(`Password hash from DB: ${user.passwordHash.substring(0, 20)}...`);
+    
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+    
+    logger.info(`Password valid: ${isPasswordValid}`);
 
     if (!isPasswordValid) {
-      throw new Error('Invalid email or password');
+      throw new Error('Invalid email/username or password');
     }
 
     // Update last login

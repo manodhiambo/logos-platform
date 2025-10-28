@@ -26,8 +26,8 @@ class AuthController {
    */
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password } = req.body;
-      const result = await authService.login(email, password);
+      const { emailOrUsername, password } = req.body;
+      const result = await authService.login(emailOrUsername, password);
 
       return successResponse(res, 'Login successful', result);
     } catch (error: any) {
@@ -40,7 +40,6 @@ class AuthController {
    */
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      // In a real application, you might want to invalidate the refresh token here
       return successResponse(res, 'Logout successful');
     } catch (error: any) {
       next(error);

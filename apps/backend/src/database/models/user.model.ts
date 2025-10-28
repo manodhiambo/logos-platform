@@ -266,20 +266,7 @@ User.init(
       { fields: ['status'] },
       { fields: ['is_deleted'] },
     ],
-    hooks: {
-      beforeCreate: async (user: User) => {
-        if (user.passwordHash) {
-          const salt = await bcrypt.genSalt(10);
-          user.passwordHash = await bcrypt.hash(user.passwordHash, salt);
-        }
-      },
-      beforeUpdate: async (user: User) => {
-        if (user.changed('passwordHash')) {
-          const salt = await bcrypt.genSalt(10);
-          user.passwordHash = await bcrypt.hash(user.passwordHash, salt);
-        }
-      },
-    },
+    // REMOVED PASSWORD HASHING HOOKS - handled in auth service
   }
 );
 
