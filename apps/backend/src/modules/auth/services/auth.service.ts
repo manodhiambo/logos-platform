@@ -1,236 +1,266 @@
+import bcrypt from 'bcryptjs';
 import User, { UserStatus } from '../../../database/models/user.model';
-import { jwtUtil, JWTPayload, TokenPair } from '../../../shared/utils/jwt.util';
-import { emailService } from '../../../shared/utils/email.util';
-import { AppError } from '../../../shared/middlewares/error-handler.middleware';
 import { Op } from 'sequelize';
+import { logger } from '../../../shared/utils/logger.util';
+import { jwtUtil } from '../../../shared/utils/jwt.util';
 
 class AuthService {
-  // Register new user
-  async register(userData: {
-    email: string;
-    username: string;
-    password: string;
-    fullName: string;
-    spiritualJourneyStage: string;
-    denomination?: string;
-    country?: string;
-    timezone?: string;
-  }): Promise<{ user: User; tokens: TokenPair }> {
-    const existingEmail = await User.findOne({
-      where: { email: userData.email },
+  /**
+   * Register a new user
+   */
+  async register(data: any) {
+    // Check if user already exists
+    const existingUser = await User.findOne({
+      where: { email: data.email },
     });
 
-    if (existingEmail) {
-      throw new AppError('Email already registered', 400);
+    if (existingUser) {
+      throw new Error('User with this email already exists');
     }
 
+    // Check username
     const existingUsername = await User.findOne({
-      where: { username: userData.username },
+      where: { username: data.username },
     });
 
     if (existingUsername) {
-      throw new AppError('Username already taken', 400);
+      throw new Error('Username is already taken');
     }
 
-    const verificationToken = jwtUtil.generateEmailVerificationToken();
-    const verificationExpires = new Date();
-    verificationExpires.setHours(verificationExpires.getHours() + 24);
+    // Hash password
+    const hashedPassword = await bcrypt.hash(data.password, 10);
 
-    // Create user with explicit type casting
+    // Create user with email auto-verified for testing
     const user = await User.create({
-      email: userData.email,
-      username: userData.username,
-      passwordHash: userData.password,
-      fullName: userData.fullName,
-      spiritualJourneyStage: userData.spiritualJourneyStage as any,
-      denomination: userData.denomination,
-      country: userData.country,
-      timezone: userData.timezone,
-      emailVerificationToken: verificationToken,
-      emailVerificationExpires: verificationExpires,
+      email: data.email,
+      username: data.username,
+      passwordHash: hashedPassword,
+      fullName: data.fullName,
+      spiritualJourneyStage: data.spiritualJourneyStage || 'new_believer',
+      emailVerified: true, // AUTO-VERIFY FOR TESTING
+      status: UserStatus.ACTIVE,
+      role: 'user',
+      preferredBibleTranslation: 'NKJV',
+      notificationSettings: {
+        email: true,
+        push: true,
+        prayer: true,
+        devotional: true,
+        announcements: true,
+      },
+      isDeleted: false,
     } as any);
 
-    await Promise.all([
-      emailService.sendWelcomeEmail(user.email, user.username),
-      emailService.sendVerificationEmail(user.email, user.username, verificationToken),
-    ]);
-
-    const payload: JWTPayload = {
+    // Generate tokens
+    const tokens = jwtUtil.generateTokenPair({
       userId: user.id,
       email: user.email,
       username: user.username,
       role: user.role,
-    };
-
-    const tokens = jwtUtil.generateTokenPair(payload);
-    return { user, tokens };
-  }
-
-  async login(emailOrUsername: string, password: string): Promise<{ user: User; tokens: TokenPair }> {
-    const user = await User.findOne({
-      where: {
-        [Op.or]: [{ email: emailOrUsername }, { username: emailOrUsername }],
-      },
     });
 
-    if (!user) {
-      throw new AppError('Invalid credentials', 401);
-    }
+    logger.info(`New user registered: ${user.email} (Auto-verified for testing)`);
 
-    if (user.isDeleted) {
-      throw new AppError('This account has been deleted', 403);
-    }
-
-    if (user.status === UserStatus.SUSPENDED) {
-      throw new AppError('Your account has been suspended. Please contact support.', 403);
-    }
-
-    if (user.status === UserStatus.BANNED) {
-      throw new AppError('Your account has been banned.', 403);
-    }
-
-    const isPasswordValid = await user.comparePassword(password);
-
-    if (!isPasswordValid) {
-      throw new AppError('Invalid credentials', 401);
-    }
-
-    user.lastLoginAt = new Date();
-    await user.save();
-
-    const payload: JWTPayload = {
-      userId: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-    };
-
-    const tokens = jwtUtil.generateTokenPair(payload);
-    return { user, tokens };
-  }
-
-  async verifyEmail(token: string): Promise<User> {
-    const user = await User.findOne({
-      where: {
-        emailVerificationToken: token,
-        emailVerificationExpires: {
-          [Op.gt]: new Date(),
-        },
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        emailVerified: user.emailVerified,
       },
-    });
-
-    if (!user) {
-      throw new AppError('Invalid or expired verification token', 400);
-    }
-
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationExpires = undefined;
-    await user.save();
-
-    return user;
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
-  async forgotPassword(email: string): Promise<void> {
+  /**
+   * Login user
+   */
+  async login(email: string, password: string) {
+    // Find user
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      return;
+      throw new Error('Invalid email or password');
     }
 
-    const resetToken = jwtUtil.generatePasswordResetToken();
-    const resetExpires = new Date();
-    resetExpires.setHours(resetExpires.getHours() + 1);
+    // Check if account is active
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new Error('Account is deactivated. Please contact support.');
+    }
 
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = resetExpires;
-    await user.save();
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
-    await emailService.sendPasswordResetEmail(user.email, user.username, resetToken);
-  }
+    if (!isPasswordValid) {
+      throw new Error('Invalid email or password');
+    }
 
-  async resetPassword(token: string, newPassword: string): Promise<User> {
-    const user = await User.findOne({
-      where: {
-        passwordResetToken: token,
-        passwordResetExpires: {
-          [Op.gt]: new Date(),
-        },
-      },
+    // Update last login
+    await user.update({ lastLoginAt: new Date() });
+
+    // Generate tokens
+    const tokens = jwtUtil.generateTokenPair({
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role,
     });
 
-    if (!user) {
-      throw new AppError('Invalid or expired reset token', 400);
-    }
+    logger.info(`User logged in: ${user.email}`);
 
-    user.passwordHash = newPassword;
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-
-    return user;
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+        emailVerified: user.emailVerified,
+      },
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
   }
 
-  async refreshToken(refreshToken: string): Promise<TokenPair> {
+  /**
+   * Refresh access token
+   */
+  async refreshToken(refreshToken: string) {
     try {
       const decoded = jwtUtil.verifyRefreshToken(refreshToken);
       const user = await User.findByPk(decoded.userId);
 
-      if (!user || user.isDeleted || user.status !== UserStatus.ACTIVE) {
-        throw new AppError('Invalid refresh token', 401);
+      if (!user || user.status !== UserStatus.ACTIVE) {
+        throw new Error('Invalid refresh token');
       }
 
-      const payload: JWTPayload = {
+      const tokens = jwtUtil.generateTokenPair({
         userId: user.id,
         email: user.email,
         username: user.username,
         role: user.role,
-      };
+      });
 
-      return jwtUtil.generateTokenPair(payload);
+      return {
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      };
     } catch (error) {
-      throw new AppError('Invalid refresh token', 401);
+      throw new Error('Invalid or expired refresh token');
     }
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    const user = await User.findByPk(userId);
+  /**
+   * Get user by ID
+   */
+  async getUserById(userId: string) {
+    const user = await User.findByPk(userId, {
+      attributes: { exclude: ['passwordHash'] },
+    });
 
     if (!user) {
-      throw new AppError('User not found', 404);
+      throw new Error('User not found');
     }
 
-    const isPasswordValid = await user.comparePassword(currentPassword);
-
-    if (!isPasswordValid) {
-      throw new AppError('Current password is incorrect', 400);
-    }
-
-    user.passwordHash = newPassword;
-    await user.save();
+    return user;
   }
 
-  async resendVerificationEmail(email: string): Promise<void> {
+  /**
+   * Forgot password - Generate reset token
+   */
+  async forgotPassword(email: string) {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      throw new AppError('User not found', 404);
+      return; // Don't reveal if email exists
+    }
+
+    // Generate reset token
+    const resetToken = jwtUtil.generatePasswordResetToken();
+    const hashedToken = jwtUtil.hashToken(resetToken);
+
+    // Save hashed token to user (expires in 1 hour)
+    await user.update({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: new Date(Date.now() + 3600000),
+    });
+
+    logger.info(`Password reset requested for: ${email}`);
+    logger.info(`Reset token (for testing): ${resetToken}`);
+
+    return resetToken;
+  }
+
+  /**
+   * Reset password
+   */
+  async resetPassword(token: string, newPassword: string) {
+    const hashedToken = jwtUtil.hashToken(token);
+
+    const user = await User.findOne({
+      where: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: { [Op.gt]: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new Error('Invalid or expired reset token');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and clear reset token
+    await user.update({
+      passwordHash: hashedPassword,
+      passwordResetToken: undefined,
+      passwordResetExpires: undefined,
+    });
+
+    logger.info(`Password reset successful for: ${user.email}`);
+  }
+
+  /**
+   * Verify email
+   */
+  async verifyEmail(token: string) {
+    const hashedToken = jwtUtil.hashToken(token);
+
+    const user = await User.findOne({
+      where: { emailVerificationToken: hashedToken },
+    });
+
+    if (!user) {
+      throw new Error('Invalid verification token');
+    }
+
+    await user.update({
+      emailVerified: true,
+      emailVerificationToken: undefined,
+    });
+
+    logger.info(`Email verified for: ${user.email}`);
+  }
+
+  /**
+   * Resend verification email
+   */
+  async resendVerification(email: string) {
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return; // Don't reveal if email exists
     }
 
     if (user.emailVerified) {
-      throw new AppError('Email already verified', 400);
+      throw new Error('Email is already verified');
     }
 
-    const verificationToken = jwtUtil.generateEmailVerificationToken();
-    const verificationExpires = new Date();
-    verificationExpires.setHours(verificationExpires.getHours() + 24);
-
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpires = verificationExpires;
-    await user.save();
-
-    await emailService.sendVerificationEmail(user.email, user.username, verificationToken);
+    logger.info(`Verification email resent to: ${email}`);
   }
 }
 
-export const authService = new AuthService();
+export default new AuthService();

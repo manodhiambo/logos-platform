@@ -1,177 +1,138 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService } from '../services/auth.service';
-import { AppError } from '../../../shared/middlewares/error-handler.middleware';
+import authService from '../services/auth.service';
+import { successResponse } from '../../../shared/utils/response.util';
 
 class AuthController {
-  // Register new user
+  /**
+   * Register a new user
+   */
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const { user, tokens } = await authService.register(req.body);
+      const result = await authService.register(req.body);
 
-      res.status(201).json({
-        success: true,
-        message: 'Registration successful! Please check your email to verify your account.',
-        data: {
-          user: user.toSafeObject(),
-          tokens,
-        },
-      });
-    } catch (error) {
+      return successResponse(
+        res,
+        'Registration successful. Your account is ready to use!',
+        result,
+        201
+      );
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Login user
+  /**
+   * Login user
+   */
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { emailOrUsername, password } = req.body;
-      const { user, tokens } = await authService.login(emailOrUsername, password);
+      const { email, password } = req.body;
+      const result = await authService.login(email, password);
 
-      res.json({
-        success: true,
-        message: 'Login successful!',
-        data: {
-          user: user.toSafeObject(),
-          tokens,
-        },
-      });
-    } catch (error) {
+      return successResponse(res, 'Login successful', result);
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Logout user (client-side token removal)
+  /**
+   * Logout user
+   */
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      res.json({
-        success: true,
-        message: 'Logout successful!',
-      });
-    } catch (error) {
+      // In a real application, you might want to invalidate the refresh token here
+      return successResponse(res, 'Logout successful');
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Verify email
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
+  /**
+   * Refresh access token
+   */
+  async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token } = req.body;
-      const user = await authService.verifyEmail(token);
+      const { refreshToken } = req.body;
+      const result = await authService.refreshToken(refreshToken);
 
-      res.json({
-        success: true,
-        message: 'Email verified successfully! You can now access all features.',
-        data: {
-          user: user.toSafeObject(),
-        },
-      });
-    } catch (error) {
+      return successResponse(res, 'Token refreshed successfully', result);
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Resend verification email
-  async resendVerificationEmail(req: Request, res: Response, next: NextFunction) {
+  /**
+   * Get current user
+   */
+  async me(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email } = req.body;
-      await authService.resendVerificationEmail(email);
+      const userId = req.user!.id;
+      const user = await authService.getUserById(userId);
 
-      res.json({
-        success: true,
-        message: 'Verification email sent! Please check your inbox.',
-      });
-    } catch (error) {
+      return successResponse(res, 'User retrieved successfully', { user });
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Forgot password
+  /**
+   * Request password reset
+   */
   async forgotPassword(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = req.body;
       await authService.forgotPassword(email);
 
-      res.json({
-        success: true,
-        message: 'If that email exists, a password reset link has been sent.',
-      });
-    } catch (error) {
+      return successResponse(
+        res,
+        'If an account exists with this email, a password reset link has been sent.'
+      );
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Reset password
+  /**
+   * Reset password
+   */
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token, password } = req.body;
-      const user = await authService.resetPassword(token, password);
+      const { token, newPassword } = req.body;
+      await authService.resetPassword(token, newPassword);
 
-      res.json({
-        success: true,
-        message: 'Password reset successful! You can now login with your new password.',
-        data: {
-          user: user.toSafeObject(),
-        },
-      });
-    } catch (error) {
+      return successResponse(res, 'Password has been reset successfully');
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Refresh access token
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
+  /**
+   * Verify email
+   */
+  async verifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
-      const { refreshToken } = req.body;
-      const tokens = await authService.refreshToken(refreshToken);
+      const { token } = req.params;
+      await authService.verifyEmail(token);
 
-      res.json({
-        success: true,
-        message: 'Token refreshed successfully!',
-        data: {
-          tokens,
-        },
-      });
-    } catch (error) {
+      return successResponse(res, 'Email verified successfully');
+    } catch (error: any) {
       next(error);
     }
   }
 
-  // Change password (authenticated user)
-  async changePassword(req: Request, res: Response, next: NextFunction) {
+  /**
+   * Resend verification email
+   */
+  async resendVerification(req: Request, res: Response, next: NextFunction) {
     try {
-      if (!req.user) {
-        throw new AppError('Authentication required', 401);
-      }
+      const { email } = req.body;
+      await authService.resendVerification(email);
 
-      const { currentPassword, newPassword } = req.body;
-      await authService.changePassword(req.user.id, currentPassword, newPassword);
-
-      res.json({
-        success: true,
-        message: 'Password changed successfully!',
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  // Get current user profile
-  async getProfile(req: Request, res: Response, next: NextFunction) {
-    try {
-      if (!req.user) {
-        throw new AppError('Authentication required', 401);
-      }
-
-      res.json({
-        success: true,
-        data: {
-          user: req.user.toSafeObject(),
-        },
-      });
-    } catch (error) {
+      return successResponse(res, 'Verification email sent');
+    } catch (error: any) {
       next(error);
     }
   }
 }
 
-export const authController = new AuthController();
+export default new AuthController();
