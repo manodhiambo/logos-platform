@@ -112,6 +112,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/dashboard/bible" icon="📕">
               Bible
             </NavLink>
+            <NavLink href="/dashboard/video-calls" icon="🎥">
+              Video Calls
+            </NavLink>
             <NavLink href="/dashboard/notifications" icon="🔔">
               Notifications
             </NavLink>
