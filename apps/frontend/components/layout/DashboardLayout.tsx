@@ -36,6 +36,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     return null;
   }
 
+  const isAdmin = user && ['admin', 'super_admin'].includes(user.role || '');
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top Navigation Bar */}
@@ -63,6 +65,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <span className="text-sm text-slate-600 hidden sm:block">
                 Welcome, {user?.fullName}
               </span>
+              {isAdmin && (
+                <Link href="/dashboard/admin">
+                  <Button variant="outline" size="sm">
+                    👨‍💼 Admin
+                  </Button>
+                </Link>
+              )}
               <Button variant="outline" size="sm" onClick={logout}>
                 Logout
               </Button>
@@ -106,6 +115,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/dashboard/notifications" icon="🔔">
               Notifications
             </NavLink>
+            {isAdmin && (
+              <>
+                <div className="border-t border-slate-200 my-2 pt-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
+                    Admin
+                  </p>
+                </div>
+                <NavLink href="/dashboard/admin" icon="👨‍💼">
+                  Admin Dashboard
+                </NavLink>
+                <NavLink href="/dashboard/admin/users" icon="👥">
+                  User Management
+                </NavLink>
+                <NavLink href="/dashboard/admin/announcements" icon="📢">
+                  Announcements
+                </NavLink>
+              </>
+            )}
           </nav>
         </aside>
 
