@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import aiConversationService from '../services/ai-conversation.service';
-import { successResponse, errorResponse } from '../../../shared/utils/response.util';
+import { successResponse } from '../../../shared/utils/response.util';
 
 class AIController {
   /**
@@ -13,27 +13,9 @@ class AIController {
 
       const conversation = await aiConversationService.createConversation(userId, initialMessage);
 
-      // If there's an initial message, send it and get response
-      if (initialMessage) {
-        const result = await aiConversationService.sendMessage(
-          conversation.id,
-          userId,
-          initialMessage
-        );
-
-        return successResponse(
-          res,
-          'Conversation created successfully',
-          {
-            conversation: result.conversation,
-            userMessage: result.userMessage,
-            assistantMessage: result.assistantMessage,
-          },
-          201
-        );
-      }
-
-      return successResponse(res, 'Conversation created successfully', { conversation }, 201);
+      return successResponse(res, 'Conversation created successfully', {
+        conversation,
+      }, 201);
     } catch (error: any) {
       next(error);
     }
@@ -50,7 +32,10 @@ class AIController {
 
       const result = await aiConversationService.sendMessage(conversationId, userId, content);
 
-      return successResponse(res, 'Message sent successfully', result);
+      return successResponse(res, 'Message sent successfully', {
+        conversation: result.conversation,
+        messages: result.messages,
+      });
     } catch (error: any) {
       next(error);
     }
@@ -85,9 +70,9 @@ class AIController {
       const userId = req.user!.id;
       const { conversationId } = req.params;
 
-      const conversation = await aiConversationService.getConversationById(conversationId, userId);
+      const result = await aiConversationService.getConversationById(conversationId, userId);
 
-      return successResponse(res, 'Conversation retrieved successfully', { conversation });
+      return successResponse(res, 'Conversation retrieved successfully', result);
     } catch (error: any) {
       next(error);
     }
@@ -100,16 +85,12 @@ class AIController {
     try {
       const userId = req.user!.id;
       const { conversationId } = req.params;
-      const { page = 1, limit = 50 } = req.query;
 
-      const result = await aiConversationService.getConversationMessages(
-        conversationId,
-        userId,
-        Number(page),
-        Number(limit)
-      );
+      const result = await aiConversationService.getConversationById(conversationId, userId);
 
-      return successResponse(res, 'Messages retrieved successfully', result);
+      return successResponse(res, 'Messages retrieved successfully', {
+        messages: result.messages,
+      });
     } catch (error: any) {
       next(error);
     }
@@ -125,7 +106,9 @@ class AIController {
 
       const conversation = await aiConversationService.archiveConversation(conversationId, userId);
 
-      return successResponse(res, 'Conversation archived successfully', { conversation });
+      return successResponse(res, 'Conversation archived successfully', {
+        conversation,
+      });
     } catch (error: any) {
       next(error);
     }
@@ -139,25 +122,30 @@ class AIController {
       const userId = req.user!.id;
       const { conversationId } = req.params;
 
-      const result = await aiConversationService.deleteConversation(conversationId, userId);
+      await aiConversationService.deleteConversation(conversationId, userId);
 
-      return successResponse(res, result.message);
+      return successResponse(res, 'Conversation deleted successfully');
     } catch (error: any) {
       next(error);
     }
   }
 
   /**
-   * Quick ask (single question)
+   * Quick ask - single question without creating a conversation
    */
   async quickAsk(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
       const { question } = req.body;
 
-      const result = await aiConversationService.quickAsk(userId, question);
+      // Create a temporary conversation for quick ask
+      const conversation = await aiConversationService.createConversation(userId, question);
+      const result = await aiConversationService.sendMessage(conversation.id, userId, question);
 
-      return successResponse(res, 'Answer generated successfully', result);
+      return successResponse(res, 'Response received successfully', {
+        answer: result.messages[result.messages.length - 1]?.content || '',
+        messages: result.messages,
+      });
     } catch (error: any) {
       next(error);
     }

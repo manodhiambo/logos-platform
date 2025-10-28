@@ -48,7 +48,7 @@ class AIConversationService {
     const conversationHistory = previousMessages
       .reverse()
       .map(msg => ({
-        role: msg.role === 'user' ? ('user' as const) : ('bot' as const),
+        role: (msg.role === 'assistant' ? 'bot' : 'user') as 'user' | 'bot',
         content: msg.content,
       }));
 
@@ -63,39 +63,46 @@ class AIConversationService {
 
     try {
       // Get AI response from POE
-      const aiResponse = await poeApiService.sendMessage(content, conversationHistory);
+      let aiResponse;
+      try {
+        aiResponse = await poeApiService.sendMessage(content, conversationHistory);
+      } catch (primaryError) {
+        // Try alternative endpoint
+        console.log('Primary endpoint failed, trying alternative...');
+        aiResponse = await poeApiService.sendMessageAlternative(content);
+      }
 
-      // Extract Bible references from response
+      // Extract Bible references
       const bibleReferences = poeApiService.extractBibleReferences(aiResponse.text);
 
-      // Save assistant message
-      const assistantMessage = await AIMessage.create({
+      // Save AI response with role 'assistant'
+      const botMessage = await AIMessage.create({
         conversationId,
         role: 'assistant',
         content: aiResponse.text,
-        bibleReferences,
-        metadata: {
-          poeResponseId: aiResponse.id,
-        },
+        bibleReferences: bibleReferences.length > 0 ? bibleReferences : [],
+        metadata: {},
       });
 
-      // Update conversation title if it's the first message
+      // Update conversation title if this is the first message
       if (!conversation.title || conversation.title === 'New Conversation') {
         await conversation.update({
           title: poeApiService.generateTitle(content),
         });
       }
 
-      // Update conversation timestamp
-      await conversation.update({ updatedAt: new Date() });
+      // Return all messages
+      const allMessages = await AIMessage.findAll({
+        where: { conversationId },
+        order: [['createdAt', 'ASC']],
+      });
 
       return {
-        userMessage,
-        assistantMessage,
         conversation,
+        messages: allMessages,
       };
     } catch (error: any) {
-      // Delete user message if AI response fails
+      // Delete the user message if AI response failed
       await userMessage.destroy();
       throw error;
     }
@@ -104,84 +111,22 @@ class AIConversationService {
   /**
    * Get user's conversations
    */
-  async getUserConversations(userId: string, page: number = 1, limit: number = 20, archived: boolean = false) {
+  async getUserConversations(userId: string, page = 1, limit = 20, archived = false) {
     const offset = (page - 1) * limit;
 
-    const { rows: conversations, count: total } = await AIConversation.findAndCountAll({
-      where: {
-        userId,
-        isArchived: archived,
-      },
-      limit,
-      offset,
+    const { rows: conversations, count } = await AIConversation.findAndCountAll({
+      where: { userId, isArchived: archived },
       order: [['updatedAt', 'DESC']],
-      include: [
-        {
-          model: AIMessage,
-          as: 'messages',
-          limit: 1,
-          order: [['createdAt', 'DESC']],
-          attributes: ['content', 'createdAt'],
-        },
-      ],
-    });
-
-    // Get message count for each conversation
-    const conversationsWithCount = await Promise.all(
-      conversations.map(async (conv) => {
-        const messageCount = await AIMessage.count({
-          where: { conversationId: conv.id },
-        });
-
-        return {
-          ...conv.toJSON(),
-          messageCount,
-          lastMessage: (conv as any).messages?.[0] || null,
-        };
-      })
-    );
-
-    return {
-      conversations: conversationsWithCount,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalConversations: total,
-        limit,
-      },
-    };
-  }
-
-  /**
-   * Get conversation messages
-   */
-  async getConversationMessages(conversationId: string, userId: string, page: number = 1, limit: number = 50) {
-    // Verify conversation belongs to user
-    const conversation = await AIConversation.findOne({
-      where: { id: conversationId, userId },
-    });
-
-    if (!conversation) {
-      throw new Error('Conversation not found');
-    }
-
-    const offset = (page - 1) * limit;
-
-    const { rows: messages, count: total } = await AIMessage.findAndCountAll({
-      where: { conversationId },
       limit,
       offset,
-      order: [['createdAt', 'ASC']],
     });
 
     return {
-      messages,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalMessages: total,
-        limit,
-      },
+      conversations,
+      total: count,
+      page,
+      limit,
+      totalPages: Math.ceil(count / limit),
     };
   }
 
@@ -197,7 +142,38 @@ class AIConversationService {
       throw new Error('Conversation not found');
     }
 
-    return conversation;
+    const messages = await AIMessage.findAll({
+      where: { conversationId },
+      order: [['createdAt', 'ASC']],
+    });
+
+    return {
+      conversation,
+      messages,
+    };
+  }
+
+  /**
+   * Delete conversation
+   */
+  async deleteConversation(conversationId: string, userId: string) {
+    const conversation = await AIConversation.findOne({
+      where: { id: conversationId, userId },
+    });
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Delete all messages
+    await AIMessage.destroy({
+      where: { conversationId },
+    });
+
+    // Delete conversation
+    await conversation.destroy();
+
+    return { message: 'Conversation deleted successfully' };
   }
 
   /**
@@ -215,37 +191,6 @@ class AIConversationService {
     await conversation.update({ isArchived: true });
 
     return conversation;
-  }
-
-  /**
-   * Delete conversation
-   */
-  async deleteConversation(conversationId: string, userId: string) {
-    const conversation = await AIConversation.findOne({
-      where: { id: conversationId, userId },
-    });
-
-    if (!conversation) {
-      throw new Error('Conversation not found');
-    }
-
-    await conversation.destroy();
-
-    return { message: 'Conversation deleted successfully' };
-  }
-
-  /**
-   * Quick ask (single question without conversation)
-   */
-  async quickAsk(userId: string, question: string) {
-    const aiResponse = await poeApiService.sendMessage(question, []);
-    const bibleReferences = poeApiService.extractBibleReferences(aiResponse.text);
-
-    return {
-      question,
-      answer: aiResponse.text,
-      bibleReferences,
-    };
   }
 }
 
