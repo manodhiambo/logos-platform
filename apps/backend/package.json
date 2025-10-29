@@ -18,11 +18,20 @@
     "dotenv": "^16.3.1",
     "axios": "^1.6.0",
     "socket.io": "^4.6.0",
-    "agora-access-token": "^2.0.4"
+    "agora-access-token": "^2.0.4",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.3.2",
+    "joi": "^17.11.0",
+    "express-validator": "^7.0.1",
+    "winston": "^3.11.0",
+    "@sendgrid/mail": "^8.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/express": "^4.17.21",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/cors": "^2.8.17",
     "typescript": "^5.3.0",
     "nodemon": "^3.0.2",
     "ts-node": "^10.9.2"
