@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     rootDir: apps/backend
-    buildCommand: npm install && npm run build
+    buildCommand: cd ../.. && npm install && cd apps/backend && npm install && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV
@@ -16,6 +16,8 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
       - key: POE_API_KEY
         sync: false
       - key: AGORA_APP_ID
@@ -23,7 +25,7 @@ services:
       - key: AGORA_APP_CERTIFICATE
         sync: false
       - key: CORS_ORIGIN
-        value: https://logos-platform.vercel.app
+        value: https://frontend-j7myt9g1m-kevin-owino-odhiambos-projects.vercel.app
 
 databases:
   - name: logos-postgres
