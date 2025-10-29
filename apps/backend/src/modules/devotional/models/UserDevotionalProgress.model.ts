@@ -53,6 +53,7 @@ UserDevotionalProgress.init(
     completed: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+      field: 'is_completed',  // THIS IS THE FIX - maps to is_completed in DB
     },
     notes: {
       type: DataTypes.TEXT,
