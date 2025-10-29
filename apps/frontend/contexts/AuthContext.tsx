@@ -36,7 +36,9 @@ interface RegisterData {
   email: string;
   username: string;
   password: string;
+  confirmPassword?: string;
   fullName: string;
+  spiritualJourneyStage?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
