@@ -1,12 +1,17 @@
 import Redis from 'ioredis';
-import { config } from './env.config';
+import config from './env.config';
 
-export const redisClient = new Redis({
+// Redis is optional - comment out if not using
+/*
+const redis = new Redis({
   host: config.redis.host,
   port: config.redis.port,
 });
 
-redisClient.on('connect', () => console.log('✅ Redis connected'));
-redisClient.on('error', err => console.error('❌ Redis error:', err));
+redis.on('error', (err: any) => {
+  console.error('Redis connection error:', err);
+});
+*/
 
-export default redisClient;
+// Export null for now if not using Redis
+export default null; // redis;
