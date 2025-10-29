@@ -226,7 +226,7 @@ export default function VideoCallRoom({ callId, onLeave }: VideoCallRoomProps) {
         {remoteUsers.map((user) => (
           <div key={user.uid} className="relative bg-slate-800 rounded-lg overflow-hidden">
             <div
-              ref={(el) => (remoteVideoRefs.current[user.uid.toString()] = el)}
+              ref={(el) => { remoteVideoRefs.current[user.uid.toString()] = el; }}
               className="w-full h-full"
             ></div>
             <div className="absolute bottom-4 left-4 bg-black/50 px-3 py-1 rounded text-white text-sm">
