@@ -3,8 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { sequelize } from './config/database.config';
-import { logger } from './shared/utils/logger.util';
-import { errorHandler } from './shared/middlewares/error-handler.middleware';
+
+// Load environment variables FIRST
+dotenv.config();
+
+console.log('🔍 Environment check:');
+console.log('PORT:', process.env.PORT || 3000);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN);
 
 // Import routes
 import authRoutes from './modules/auth/routes/auth.routes';
@@ -18,6 +25,11 @@ import notificationRoutes from './modules/notifications/routes/notification.rout
 import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
 
+// Import middlewares
+import { notFound } from './shared/middlewares/not-found.middleware';
+import { errorHandler } from './shared/middlewares/error-handler.middleware';
+
+console.log('📦 Loading model associations...');
 // Import model associations
 import './modules/community/models/associations';
 import './modules/ai-assistant/models/associations';
@@ -27,85 +39,72 @@ import './modules/devotional/models/associations';
 import './modules/notifications/models/associations';
 import './modules/video-calls/models';
 
-// Load environment variables
-dotenv.config();
-
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware - CORS configured for frontend
-app.use(cors({
-  origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+console.log('⚙️  Setting up middleware...');
+// Middleware
 app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Health check endpoint
+// Health check
 app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: 'LOGOS Platform API is running!',
-    timestamp: new Date().toISOString(),
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'LOGOS API is running',
+    timestamp: new Date().toISOString()
   });
 });
 
+console.log('🛣️  Setting up routes...');
 // API Routes
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/communities', communityRoutes);
-app.use('/api/v1/ai', aiRoutes);
-app.use('/api/v1/bible', bibleRoutes);
-app.use('/api/v1/posts', postRoutes);
-app.use('/api/v1/prayers', prayerRoutes);
-app.use('/api/v1/devotionals', devotionalRoutes);
-app.use('/api/v1/notifications', notificationRoutes);
-app.use('/api/v1/video-calls', videoCallRoutes);
-app.use('/api/v1/admin', adminRoutes);
+const API_PREFIX = '/api/v1';
+app.use(`${API_PREFIX}/auth`, authRoutes);
+app.use(`${API_PREFIX}/communities`, communityRoutes);
+app.use(`${API_PREFIX}/ai`, aiRoutes);
+app.use(`${API_PREFIX}/bible`, bibleRoutes);
+app.use(`${API_PREFIX}/posts`, postRoutes);
+app.use(`${API_PREFIX}/prayers`, prayerRoutes);
+app.use(`${API_PREFIX}/devotionals`, devotionalRoutes);
+app.use(`${API_PREFIX}/notifications`, notificationRoutes);
+app.use(`${API_PREFIX}/video-calls`, videoCallRoutes);
+app.use(`${API_PREFIX}/admin`, adminRoutes);
 
-// 404 handler - MUST BE AFTER ALL ROUTES
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    message: 'Endpoint not found',
-  });
-});
-
-// Error handling middleware
+// Error handlers
+app.use(notFound);
 app.use(errorHandler);
 
-// Start server
-const startServer = async () => {
+// Database connection and server startup
+async function startServer() {
   try {
-    // Connect to database
+    console.log('🔌 Connecting to database...');
+    
+    // Test database connection
     await sequelize.authenticate();
-    logger.info('✅ Database connected successfully');
+    console.log('✅ Database connected successfully');
 
-    // Start listening
+    // Start server
     app.listen(PORT, () => {
-      logger.info(`🚀 Server is running on port ${PORT}`);
-      logger.info(`📍 API Base URL: http://localhost:${PORT}/api/v1`);
-      logger.info(`\n📋 Available Endpoints:`);
-      logger.info(`   ✝️  Health Check: http://localhost:${PORT}/health`);
-      logger.info(`   🔐 Auth Routes: http://localhost:${PORT}/api/v1/auth`);
-      logger.info(`   👥 Community Routes: http://localhost:${PORT}/api/v1/communities`);
-      logger.info(`   🤖 AI Routes: http://localhost:${PORT}/api/v1/ai`);
-      logger.info(`   📖 Bible Routes: http://localhost:${PORT}/api/v1/bible`);
-      logger.info(`   💬 Posts Routes: http://localhost:${PORT}/api/v1/posts`);
-      logger.info(`   🙏 Prayer Routes: http://localhost:${PORT}/api/v1/prayers`);
-      logger.info(`   📚 Devotional Routes: http://localhost:${PORT}/api/v1/devotionals`);
-      logger.info(`   🔔 Notification Routes: http://localhost:${PORT}/api/v1/notifications`);
-      logger.info(`   🎥 Video Calls Routes: http://localhost:${PORT}/api/v1/video-calls`);
-      logger.info(`   👨‍💼 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
+      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`📍 Health check: http://localhost:${PORT}/health`);
+      console.log(`📍 API Base: http://localhost:${PORT}${API_PREFIX}`);
+      console.log(`✨ LOGOS Backend is ready!`);
     });
-  } catch (error) {
-    logger.error('❌ Failed to start server:', error);
+  } catch (error: any) {
+    console.error('❌ Failed to start server:');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Full error:', error);
     process.exit(1);
   }
-};
+}
 
+console.log('🚀 Starting server...');
 startServer();
 
 export default app;
