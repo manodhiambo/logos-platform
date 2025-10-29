@@ -10,11 +10,13 @@ const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    // Get token from localStorage
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      console.log('🔑 Token from localStorage:', token ? 'Found' : 'Not found');
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     
     return config;
@@ -28,11 +30,14 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error.response?.status, error.response?.data);
+    
     if (error.response?.status === 401) {
-      // Unauthorized - clear token and redirect to login
+      console.log('🚫 Unauthorized - clearing token and redirecting to login');
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
-        if (!window.location.pathname.includes('/login')) {
+        localStorage.removeItem('user');
+        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
           window.location.href = '/login';
         }
       }
