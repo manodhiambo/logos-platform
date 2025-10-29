@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-
+  
   return (
     <nav className="border-b bg-white shadow-sm">
       <div className="container mx-auto px-4 py-3">
@@ -15,7 +15,7 @@ export default function Navbar() {
           <Link href="/dashboard" className="text-2xl font-bold text-primary">
             LOGOS ✝️
           </Link>
-
+          
           <div className="hidden md:flex items-center gap-6">
             <Link href="/dashboard" className="text-slate-700 hover:text-primary">
               Dashboard
@@ -35,8 +35,15 @@ export default function Navbar() {
             <Link href="/dashboard/ai-assistant" className="text-slate-700 hover:text-primary">
               AI Assistant
             </Link>
+            
+            {/* Admin Link - Only visible to admins */}
+            {user?.role === 'admin' && (
+              <Link href="/admin" className="text-red-600 hover:text-red-700 font-semibold">
+                🛡️ Admin
+              </Link>
+            )}
           </div>
-
+          
           <div className="flex items-center gap-4">
             <Avatar>
               <AvatarImage src={user?.avatarUrl} />
