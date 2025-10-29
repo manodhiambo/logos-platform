@@ -5,14 +5,14 @@ import CommentLike from './CommentLike.model';
 import User from '../../../database/models/user.model';
 import Community from '../../community/models/Community.model';
 
-// Post - User (Author) relationship
+// Post - User (Author) relationship - using user_id from database
 Post.belongsTo(User, {
-  foreignKey: 'author_id',
+  foreignKey: 'user_id',
   as: 'author',
 });
 
 User.hasMany(Post, {
-  foreignKey: 'author_id',
+  foreignKey: 'user_id',
   as: 'posts',
 });
 
@@ -29,12 +29,12 @@ Community.hasMany(Post, {
 
 // Comment - User (Author) relationship
 Comment.belongsTo(User, {
-  foreignKey: 'author_id',
+  foreignKey: 'user_id',
   as: 'author',
 });
 
 User.hasMany(Comment, {
-  foreignKey: 'author_id',
+  foreignKey: 'user_id',
   as: 'comments',
 });
 
