@@ -4,8 +4,9 @@ services:
     env: node
     region: oregon
     plan: free
-    buildCommand: npm install && npm run build --workspace=@logos/backend
-    startCommand: npm run start --workspace=@logos/backend
+    rootDir: apps/backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,13 +22,12 @@ services:
         sync: false
       - key: AGORA_APP_CERTIFICATE
         sync: false
+      - key: CORS_ORIGIN
+        value: https://logos-platform.vercel.app
 
-  - type: pserv
-    name: logos-postgres
-    env: docker
+databases:
+  - name: logos-postgres
+    databaseName: logos_platform
+    user: logos_user
     region: oregon
     plan: free
-    disk:
-      name: postgres-data
-      mountPath: /var/lib/postgresql/data
-      sizeGB: 1

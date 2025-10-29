@@ -1,47 +1,9 @@
-# Dependencies
 node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-
-# Next.js
-.next/
-out/
-build/
 dist/
-
-# Logs
-*.log
-logs/
-
-# Environment
 .env
-.env*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
+.env.local
 .DS_Store
-
-# Turbo
-.turbo/
-
-# TypeScript
-*.tsbuildinfo
-
-# Database
-*.db
-*.sqlite
-
-# Uploads
-uploads/
-temp/
-
-# Mobile
-.expo/
-*.xcworkspace
-xcuserdata/
-.gradle/
+*.log
+.next/
+build/
+coverage/
