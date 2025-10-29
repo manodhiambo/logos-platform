@@ -95,10 +95,10 @@ class VideoCallService {
         isVideoOff: false,
       });
     } else {
-      // Update join time
+      // Update join time - use undefined instead of null
       await participant.update({
         joinedAt: new Date(),
-        leftAt: null,
+        leftAt: undefined,
       });
     }
 

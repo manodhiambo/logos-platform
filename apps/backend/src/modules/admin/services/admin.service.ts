@@ -1,7 +1,7 @@
 import User, { UserRole, UserStatus } from '../../../database/models/user.model';
 import Announcement, { AnnouncementStatus } from '../../../database/models/announcement.model';
 import { AppError } from '../../../shared/middlewares/error-handler.middleware';
-import { emailService } from '../../../shared/utils/email.util';
+import emailService from '../../../shared/utils/email.util';
 import { Op } from 'sequelize';
 import { sequelize } from '../../../config/database.config';
 

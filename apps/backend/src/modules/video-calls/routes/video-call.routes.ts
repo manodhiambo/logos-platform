@@ -21,32 +21,8 @@ router.use(authenticate);
 router.post('/', createCallValidator, validate, videoCallController.createCall);
 
 /**
- * @route   POST /api/v1/video-calls/:callId/join
- * @desc    Join a video call
- * @access  Private
+ * IMPORTANT: Specific routes MUST come before parameterized routes
  */
-router.post('/:callId/join', callIdValidator, validate, videoCallController.joinCall);
-
-/**
- * @route   POST /api/v1/video-calls/:callId/leave
- * @desc    Leave a video call
- * @access  Private
- */
-router.post('/:callId/leave', callIdValidator, validate, videoCallController.leaveCall);
-
-/**
- * @route   POST /api/v1/video-calls/:callId/end
- * @desc    End a video call (host only)
- * @access  Private
- */
-router.post('/:callId/end', callIdValidator, validate, videoCallController.endCall);
-
-/**
- * @route   GET /api/v1/video-calls/:callId
- * @desc    Get call details
- * @access  Private
- */
-router.get('/:callId', callIdValidator, validate, videoCallController.getCallById);
 
 /**
  * @route   GET /api/v1/video-calls/active/all
@@ -68,6 +44,38 @@ router.get('/scheduled/all', videoCallController.getScheduledCalls);
  * @access  Private
  */
 router.get('/history/me', videoCallController.getCallHistory);
+
+/**
+ * Now the parameterized routes
+ */
+
+/**
+ * @route   GET /api/v1/video-calls/:callId
+ * @desc    Get call details
+ * @access  Private
+ */
+router.get('/:callId', callIdValidator, validate, videoCallController.getCallById);
+
+/**
+ * @route   POST /api/v1/video-calls/:callId/join
+ * @desc    Join a video call
+ * @access  Private
+ */
+router.post('/:callId/join', callIdValidator, validate, videoCallController.joinCall);
+
+/**
+ * @route   POST /api/v1/video-calls/:callId/leave
+ * @desc    Leave a video call
+ * @access  Private
+ */
+router.post('/:callId/leave', callIdValidator, validate, videoCallController.leaveCall);
+
+/**
+ * @route   POST /api/v1/video-calls/:callId/end
+ * @desc    End a video call (host only)
+ * @access  Private
+ */
+router.post('/:callId/end', callIdValidator, validate, videoCallController.endCall);
 
 /**
  * @route   PUT /api/v1/video-calls/:callId/participant

@@ -15,6 +15,8 @@ import postRoutes from './modules/posts/routes/post.routes';
 import prayerRoutes from './modules/prayer/routes/prayer.routes';
 import devotionalRoutes from './modules/devotional/routes/devotional.routes';
 import notificationRoutes from './modules/notifications/routes/notification.routes';
+import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
+import adminRoutes from './modules/admin/routes/admin.routes';
 
 // Import model associations
 import './modules/community/models/associations';
@@ -23,6 +25,7 @@ import './modules/posts/models/associations';
 import './modules/prayer/models/associations';
 import './modules/devotional/models/associations';
 import './modules/notifications/models/associations';
+import './modules/video-calls/models';
 
 // Load environment variables
 dotenv.config();
@@ -59,8 +62,10 @@ app.use('/api/v1/posts', postRoutes);
 app.use('/api/v1/prayers', prayerRoutes);
 app.use('/api/v1/devotionals', devotionalRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/video-calls', videoCallRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
-// 404 handler
+// 404 handler - MUST BE AFTER ALL ROUTES
 app.use((req: Request, res: Response) => {
   res.status(404).json({
     success: false,
@@ -90,8 +95,10 @@ const startServer = async () => {
       logger.info(`   📖 Bible Routes: http://localhost:${PORT}/api/v1/bible`);
       logger.info(`   💬 Posts Routes: http://localhost:${PORT}/api/v1/posts`);
       logger.info(`   🙏 Prayer Routes: http://localhost:${PORT}/api/v1/prayers`);
-      logger.info(`   📖 Devotional Routes: http://localhost:${PORT}/api/v1/devotionals`);
+      logger.info(`   📚 Devotional Routes: http://localhost:${PORT}/api/v1/devotionals`);
       logger.info(`   🔔 Notification Routes: http://localhost:${PORT}/api/v1/notifications`);
+      logger.info(`   🎥 Video Calls Routes: http://localhost:${PORT}/api/v1/video-calls`);
+      logger.info(`   👨‍💼 Admin Routes: http://localhost:${PORT}/api/v1/admin`);
     });
   } catch (error) {
     logger.error('❌ Failed to start server:', error);
