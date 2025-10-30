@@ -15,13 +15,25 @@ interface PrayerAttributes {
   answeredAt?: Date;
   testimonyText?: string;
   expiresAt?: Date;
+  message?: string; // ✅ Added this field to fix TS2353
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface PrayerCreationAttributes extends Optional<PrayerAttributes, 'id' | 'prayerRequestId' | 'prayerCount' | 'isAnswered' | 'createdAt' | 'updatedAt'> {}
+interface PrayerCreationAttributes
+  extends Optional<
+    PrayerAttributes,
+    | 'id'
+    | 'prayerRequestId'
+    | 'prayerCount'
+    | 'isAnswered'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'message'
+  > {}
 
-class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes> implements PrayerAttributes {
+class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes>
+  implements PrayerAttributes {
   public id!: string;
   public userId!: string;
   public prayerRequestId?: string;
@@ -35,6 +47,7 @@ class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes> implement
   public answeredAt?: Date;
   public testimonyText?: string;
   public expiresAt?: Date;
+  public message?: string; // ✅ Added this property
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -106,6 +119,10 @@ Prayer.init(
       allowNull: true,
       field: 'expires_at',
     },
+    message: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    }, // ✅ Added this column
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
