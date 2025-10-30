@@ -5,7 +5,7 @@ interface CommunityMemberAttributes {
   id: string;
   communityId: string;
   userId: string;
-  role: 'admin' | 'moderator' | 'member';
+  role: 'owner' | 'admin' | 'moderator' | 'member';
   joinedAt?: Date;
 }
 
@@ -15,7 +15,7 @@ class CommunityMember extends Model<CommunityMemberAttributes, CommunityMemberCr
   public id!: string;
   public communityId!: string;
   public userId!: string;
-  public role!: 'admin' | 'moderator' | 'member';
+  public role!: 'owner' | 'admin' | 'moderator' | 'member';
   public readonly joinedAt!: Date;
 }
 
