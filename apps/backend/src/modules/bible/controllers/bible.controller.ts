@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BibleService } from '../services/bible.service';
+import BibleService from '../services/bible.service';
 
 const bibleService = new BibleService();
 
