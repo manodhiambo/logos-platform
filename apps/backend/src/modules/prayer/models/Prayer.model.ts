@@ -5,6 +5,7 @@ interface PrayerAttributes {
   id: string;
   userId: string;
   prayerRequestId?: string;
+  message?: string; 
   title: string;
   description: string;
   category: string;
@@ -73,6 +74,10 @@ Prayer.init(
         key: 'id',
       },
     },
+    message: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     title: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -136,7 +141,7 @@ Prayer.init(
   },
   {
     sequelize,
-    tableName: 'prayer_requests',
+    tableName: 'prayers',
     timestamps: true,
     underscored: true,
   }
