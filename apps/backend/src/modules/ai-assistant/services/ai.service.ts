@@ -15,19 +15,19 @@ export class AIService {
     try {
       // Create conversation in database
       const conversation = await AIConversation.create({
-        user_id: userId,
+        userId: userId,
         title: title.substring(0, 100),
-        conversation_context: {},
-        poe_conversation_id: null,
-        is_archived: false,
+        conversationContext: {},
+        poeConversationId: null,
+        isArchived: false,
       });
 
       // Create user message
       const userMessage = await AIMessage.create({
-        conversation_id: conversation.id,
+        conversationId: conversation.id,
         role: 'user',
         content: initialMessage,
-        bible_references: [],
+        bibleReferences: [],
         metadata: {},
       });
 
@@ -36,20 +36,20 @@ export class AIService {
       try {
         const aiResponse = await this.callPOEAPI(initialMessage);
         assistantMessage = await AIMessage.create({
-          conversation_id: conversation.id,
+          conversationId: conversation.id,
           role: 'assistant',
           content: aiResponse.content,
-          bible_references: aiResponse.bibleReferences || [],
+          bibleReferences: aiResponse.bibleReferences || [],
           metadata: {},
         });
       } catch (aiError) {
         console.error('POE API error:', aiError);
         // Fallback response
         assistantMessage = await AIMessage.create({
-          conversation_id: conversation.id,
+          conversationId: conversation.id,
           role: 'assistant',
           content: "I'm here to help you explore God's Word and grow in your faith. The Bible teaches us that God loves us deeply and has a wonderful plan for our lives. How can I assist you in your spiritual journey today?",
-          bible_references: [{
+          bibleReferences: [{
             book: 'John',
             chapter: 3,
             verses: [16],
@@ -63,9 +63,9 @@ export class AIService {
       return {
         conversation: {
           id: conversation.id,
-          userId: conversation.user_id,
+          userId: conversation.userId,
           title: conversation.title,
-          createdAt: conversation.created_at,
+          createdAt: conversation.createdAt,
         },
         firstMessage: assistantMessage,
       };
@@ -79,7 +79,7 @@ export class AIService {
     try {
       // Verify conversation belongs to user
       const conversation = await AIConversation.findOne({
-        where: { id: conversationId, user_id: userId }
+        where: { id: conversationId, userId: userId }
       });
 
       if (!conversation) {
@@ -88,10 +88,10 @@ export class AIService {
 
       // Create user message
       const userMessage = await AIMessage.create({
-        conversation_id: conversationId,
+        conversationId: conversationId,
         role: 'user',
         content,
-        bible_references: [],
+        bibleReferences: [],
         metadata: {},
       });
 
@@ -100,20 +100,20 @@ export class AIService {
       try {
         const aiResponse = await this.callPOEAPI(content);
         assistantMessage = await AIMessage.create({
-          conversation_id: conversationId,
+          conversationId: conversationId,
           role: 'assistant',
           content: aiResponse.content,
-          bible_references: aiResponse.bibleReferences || [],
+          bibleReferences: aiResponse.bibleReferences || [],
           metadata: {},
         });
       } catch (aiError) {
         console.error('POE API error:', aiError);
         // Fallback response
         assistantMessage = await AIMessage.create({
-          conversation_id: conversationId,
+          conversationId: conversationId,
           role: 'assistant',
           content: "I apologize, but I'm having trouble connecting right now. However, I'd love to help you explore the Bible. Could you share more about what you're seeking guidance on?",
-          bible_references: [],
+          bibleReferences: [],
           metadata: { fallback: true },
         });
       }
@@ -133,8 +133,8 @@ export class AIService {
       const offset = (page - 1) * limit;
 
       const { rows: conversations, count } = await AIConversation.findAndCountAll({
-        where: { user_id: userId, is_archived: false },
-        order: [['updated_at', 'DESC']],
+        where: { userId: userId, isArchived: false },
+        order: [['updatedAt', 'DESC']],
         limit,
         offset,
       });
@@ -142,12 +142,12 @@ export class AIService {
       return {
         conversations: await Promise.all(conversations.map(async (conv) => {
           const lastMessage = await AIMessage.findOne({
-            where: { conversation_id: conv.id },
-            order: [['created_at', 'DESC']],
+            where: { conversationId: conv.id },
+            order: [['createdAt', 'DESC']],
           });
 
           const messageCount = await AIMessage.count({
-            where: { conversation_id: conv.id }
+            where: { conversationId: conv.id }
           });
 
           return {
@@ -155,11 +155,11 @@ export class AIService {
             title: conv.title,
             lastMessage: lastMessage ? {
               content: lastMessage.content.substring(0, 100),
-              createdAt: lastMessage.created_at,
+              createdAt: lastMessage.createdAt,
             } : null,
             messageCount,
-            createdAt: conv.created_at,
-            updatedAt: conv.updated_at,
+            createdAt: conv.createdAt,
+            updatedAt: conv.updatedAt,
           };
         })),
         pagination: {
@@ -179,7 +179,7 @@ export class AIService {
     try {
       // Verify conversation belongs to user
       const conversation = await AIConversation.findOne({
-        where: { id: conversationId, user_id: userId }
+        where: { id: conversationId, userId: userId }
       });
 
       if (!conversation) {
@@ -189,8 +189,8 @@ export class AIService {
       const offset = (page - 1) * limit;
 
       const { rows: messages, count } = await AIMessage.findAndCountAll({
-        where: { conversation_id: conversationId },
-        order: [['created_at', 'ASC']],
+        where: { conversationId: conversationId },
+        order: [['createdAt', 'ASC']],
         limit,
         offset,
       });
@@ -213,14 +213,14 @@ export class AIService {
   async deleteConversation(conversationId: string, userId: string) {
     try {
       const conversation = await AIConversation.findOne({
-        where: { id: conversationId, user_id: userId }
+        where: { id: conversationId, userId: userId }
       });
 
       if (!conversation) {
         throw new Error('Conversation not found');
       }
 
-      await conversation.update({ is_archived: true });
+      await conversation.update({ isArchived: true });
     } catch (error) {
       console.error('Delete conversation error:', error);
       throw new Error('Failed to delete conversation');
@@ -295,7 +295,7 @@ export class AIService {
         chapter: parseInt(match[2]),
         verses: [parseInt(match[3])],
         translation: 'NKJV',
-        text: '', // Would need to fetch actual text
+        text: '',
       });
     }
 
