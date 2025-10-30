@@ -1,155 +1,98 @@
-import { Request, Response, NextFunction } from 'express';
-import aiConversationService from '../services/ai-conversation.service';
-import { successResponse } from '../../../shared/utils/response.util';
+import { Request, Response } from 'express';
+import { AIService } from '../services/ai.service';
+import { sendSuccess, sendError } from '../../../shared/utils/response.util';
 
-class AIController {
-  /**
-   * Create a new conversation
-   */
-  async createConversation(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { initialMessage } = req.body;
+const aiService = new AIService();
 
-      const conversation = await aiConversationService.createConversation(userId, initialMessage);
+export const createConversation = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { title, initialMessage } = req.body;
 
-      return successResponse(res, 'Conversation created successfully', {
-        conversation,
-      }, 201);
-    } catch (error: any) {
-      next(error);
+    if (!initialMessage) {
+      return sendError(res, 'Initial message is required', 400);
     }
+
+    const conversation = await aiService.createConversation(userId, title || 'New Conversation', initialMessage);
+    sendSuccess(res, conversation, 'Conversation created successfully', 201);
+  } catch (error: any) {
+    console.error('Create conversation error:', error);
+    sendError(res, error.message || 'Failed to create conversation', 500);
   }
+};
 
-  /**
-   * Send message to conversation
-   */
-  async sendMessage(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { conversationId } = req.params;
-      const { content } = req.body;
+export const sendMessage = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { conversationId } = req.params;
+    const { content } = req.body;
 
-      const result = await aiConversationService.sendMessage(conversationId, userId, content);
-
-      return successResponse(res, 'Message sent successfully', {
-        conversation: result.conversation,
-        messages: result.messages,
-      });
-    } catch (error: any) {
-      next(error);
+    if (!content) {
+      return sendError(res, 'Message content is required', 400);
     }
+
+    const messages = await aiService.sendMessage(conversationId, userId, content);
+    sendSuccess(res, messages, 'Message sent successfully', 201);
+  } catch (error: any) {
+    console.error('Send message error:', error);
+    sendError(res, error.message || 'Failed to send message', 500);
   }
+};
 
-  /**
-   * Get user's conversations
-   */
-  async getConversations(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { page = 1, limit = 20, archived = false } = req.query;
+export const getConversations = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-      const result = await aiConversationService.getUserConversations(
-        userId,
-        Number(page),
-        Number(limit),
-        archived === 'true'
-      );
+    const conversations = await aiService.getUserConversations(userId, page, limit);
+    sendSuccess(res, conversations, 'Conversations retrieved successfully');
+  } catch (error: any) {
+    console.error('Get conversations error:', error);
+    sendError(res, error.message || 'Failed to get conversations', 500);
+  }
+};
 
-      return successResponse(res, 'Conversations retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
+export const getConversationMessages = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { conversationId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const messages = await aiService.getConversationMessages(conversationId, userId, page, limit);
+    sendSuccess(res, messages, 'Messages retrieved successfully');
+  } catch (error: any) {
+    console.error('Get messages error:', error);
+    sendError(res, error.message || 'Failed to get messages', 500);
+  }
+};
+
+export const deleteConversation = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { conversationId } = req.params;
+
+    await aiService.deleteConversation(conversationId, userId);
+    sendSuccess(res, null, 'Conversation deleted successfully');
+  } catch (error: any) {
+    console.error('Delete conversation error:', error);
+    sendError(res, error.message || 'Failed to delete conversation', 500);
+  }
+};
+
+export const quickAsk = async (req: Request, res: Response) => {
+  try {
+    const { question } = req.body;
+
+    if (!question) {
+      return sendError(res, 'Question is required', 400);
     }
+
+    const answer = await aiService.quickAsk(question);
+    sendSuccess(res, answer, 'Answer retrieved successfully');
+  } catch (error: any) {
+    console.error('Quick ask error:', error);
+    sendError(res, error.message || 'Failed to get answer', 500);
   }
-
-  /**
-   * Get conversation by ID
-   */
-  async getConversationById(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { conversationId } = req.params;
-
-      const result = await aiConversationService.getConversationById(conversationId, userId);
-
-      return successResponse(res, 'Conversation retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get conversation messages
-   */
-  async getConversationMessages(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { conversationId } = req.params;
-
-      const result = await aiConversationService.getConversationById(conversationId, userId);
-
-      return successResponse(res, 'Messages retrieved successfully', {
-        messages: result.messages,
-      });
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Archive conversation
-   */
-  async archiveConversation(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { conversationId } = req.params;
-
-      const conversation = await aiConversationService.archiveConversation(conversationId, userId);
-
-      return successResponse(res, 'Conversation archived successfully', {
-        conversation,
-      });
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Delete conversation
-   */
-  async deleteConversation(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { conversationId } = req.params;
-
-      await aiConversationService.deleteConversation(conversationId, userId);
-
-      return successResponse(res, 'Conversation deleted successfully');
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Quick ask - single question without creating a conversation
-   */
-  async quickAsk(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const { question } = req.body;
-
-      // Create a temporary conversation for quick ask
-      const conversation = await aiConversationService.createConversation(userId, question);
-      const result = await aiConversationService.sendMessage(conversation.id, userId, question);
-
-      return successResponse(res, 'Response received successfully', {
-        answer: result.messages[result.messages.length - 1]?.content || '',
-        messages: result.messages,
-      });
-    } catch (error: any) {
-      next(error);
-    }
-  }
-}
-
-export default new AIController();
+};
