@@ -39,19 +39,11 @@ class PrayerService {
     const offset = (page - 1) * limit;
     const where: any = { isDeleted: false };
 
-    if (filters.category) {
-      where.category = filters.category;
-    }
+    if (filters.category) where.category = filters.category;
+    if (filters.status) where.status = filters.status;
+    if (filters.userId) where.userId = filters.userId;
 
-    if (filters.status) {
-      where.status = filters.status;
-    }
-
-    if (filters.userId) {
-      where.userId = filters.userId;
-    }
-
-    // Only show public prayer requests unless it's the user's own
+    // Only show public requests unless it's the user's own
     if (!filters.userId || filters.userId !== userId) {
       where.privacyLevel = 'public';
     }
@@ -76,13 +68,13 @@ class PrayerService {
       const requestIds = requests.map(r => r.id);
       const userPrayers = await Prayer.findAll({
         where: {
-          prayerRequestId: { [Op.in]: requestIds },
+          requestId: { [Op.in]: requestIds },
           userId,
         },
-        attributes: ['prayerRequestId'],
+        attributes: ['requestId'],
       });
 
-      const prayedRequestIds = new Set(userPrayers.map(p => p.prayerRequestId));
+      const prayedRequestIds = new Set(userPrayers.map(p => p.requestId));
 
       requestsWithPrayerStatus = requests.map((request: any) => ({
         ...request.toJSON(),
@@ -116,11 +108,8 @@ class PrayerService {
       ],
     });
 
-    if (!request) {
-      throw new Error('Prayer request not found');
-    }
+    if (!request) throw new Error('Prayer request not found');
 
-    // Check privacy
     if (request.privacyLevel === 'private' && request.userId !== userId) {
       throw new Error('You do not have permission to view this prayer request');
     }
@@ -128,15 +117,12 @@ class PrayerService {
     let hasPrayed = false;
     if (userId) {
       const prayer = await Prayer.findOne({
-        where: { prayerRequestId: requestId, userId },
+        where: { requestId, userId },
       });
       hasPrayed = !!prayer;
     }
 
-    return {
-      ...request.toJSON(),
-      hasPrayed,
-    };
+    return { ...request.toJSON(), hasPrayed };
   }
 
   /**
@@ -147,13 +133,9 @@ class PrayerService {
       where: { id: requestId, isDeleted: false },
     });
 
-    if (!request) {
-      throw new Error('Prayer request not found');
-    }
-
-    if (request.userId !== userId) {
+    if (!request) throw new Error('Prayer request not found');
+    if (request.userId !== userId)
       throw new Error('Unauthorized: You can only update your own prayer requests');
-    }
 
     await request.update({
       title: data.title || request.title,
@@ -173,13 +155,9 @@ class PrayerService {
       where: { id: requestId, isDeleted: false },
     });
 
-    if (!request) {
-      throw new Error('Prayer request not found');
-    }
-
-    if (request.userId !== userId) {
+    if (!request) throw new Error('Prayer request not found');
+    if (request.userId !== userId)
       throw new Error('Unauthorized: You can only delete your own prayer requests');
-    }
 
     await request.update({ isDeleted: true });
 
@@ -194,27 +172,22 @@ class PrayerService {
       where: { id: requestId, isDeleted: false },
     });
 
-    if (!request) {
-      throw new Error('Prayer request not found');
-    }
+    if (!request) throw new Error('Prayer request not found');
 
     // Check if already prayed
     const existingPrayer = await Prayer.findOne({
-      where: { prayerRequestId: requestId, userId },
+      where: { requestId, userId },
     });
 
-    if (existingPrayer) {
-      throw new Error('You have already prayed for this request');
-    }
+    if (existingPrayer) throw new Error('You have already prayed for this request');
 
     // Create prayer
     const prayer = await Prayer.create({
-      prayerRequestId: requestId,
+      requestId,
       userId,
-      message: message || undefined,
+      message: message || null,
     });
 
-    // Increment prayer count
     await request.increment('prayerCount', { by: 1 });
 
     return {
@@ -230,10 +203,10 @@ class PrayerService {
     const offset = (page - 1) * limit;
 
     const { rows: prayers, count: total } = await Prayer.findAndCountAll({
-      where: { prayerRequestId: requestId },
+      where: { requestId },
       limit,
       offset,
-      order: [['prayedAt', 'DESC']],
+      order: [['createdAt', 'DESC']],
       include: [
         {
           model: User,
@@ -262,21 +235,15 @@ class PrayerService {
       where: { id: requestId, isDeleted: false },
     });
 
-    if (!request) {
-      throw new Error('Prayer request not found');
-    }
-
-    if (request.userId !== userId) {
+    if (!request) throw new Error('Prayer request not found');
+    if (request.userId !== userId)
       throw new Error('Unauthorized: You can only update your own prayer requests');
-    }
 
     const updateData: any = { status };
 
     if (status === 'answered') {
       updateData.answeredAt = new Date();
-      if (testimony) {
-        updateData.testimony = testimony;
-      }
+      if (testimony) updateData.testimony = testimony;
     }
 
     await request.update(updateData);
@@ -310,3 +277,4 @@ class PrayerService {
 }
 
 export default new PrayerService();
+
