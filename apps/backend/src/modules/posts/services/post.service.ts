@@ -12,14 +12,16 @@ class PostService {
    */
   async createPost(data: any, userId: string) {
     const post = await Post.create({
-      communityId: data.communityId || null,
+      userId,
       authorId: userId,
+      communityId: data.communityId || null,
       content: data.content,
       postType: data.postType || 'discussion',
       attachments: data.attachments || [],
       isPinned: false,
       likeCount: 0,
       commentCount: 0,
+      visibility: data.visibility || 'public',
     });
 
     // Fetch post with author details

@@ -29,6 +29,7 @@ class Post extends Model<PostAttributes, PostCreationAttributes> implements Post
   public communityId?: string;
   public content!: string;
   public mediaUrls!: any[];
+  public attachments!: any[];
   public postType!: string;
   public isPinned!: boolean;
   public likeCount!: number;
