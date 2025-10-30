@@ -1,162 +1,192 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api-client';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  createdAt: string;
+  created_at: string;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  updated_at: string;
 }
 
 export default function AIAssistantPage() {
-  const { user } = useAuth();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConversation, setCurrentConversation] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  useEffect(() => {
+    fetchConversations();
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    if (currentConversation) {
+      fetchMessages(currentConversation);
+    }
+  }, [currentConversation]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const fetchConversations = async () => {
+    try {
+      const response = await apiClient.get('/ai-assistant/conversations');
+      setConversations(response.data.data.conversations || []);
+    } catch (error) {
+      console.error('Failed to fetch conversations:', error);
+    }
+  };
+
+  const fetchMessages = async (conversationId: string) => {
+    try {
+      const response = await apiClient.get(`/ai-assistant/conversations/${conversationId}/messages`);
+      setMessages(response.data.data.messages || []);
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  };
+
+  const createNewConversation = async (firstMessage: string) => {
+    try {
+      const response = await apiClient.post('/ai-assistant/conversations', {
+        title: 'New Conversation',
+        initialMessage: firstMessage,
+      });
+      const newConv = response.data.data.conversation;
+      setCurrentConversation(newConv.id);
+      fetchConversations();
+      return newConv.id;
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+      return null;
+    }
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      createdAt: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMessage = input;
     setInput('');
     setLoading(true);
 
     try {
-      let convId = conversationId;
+      let convId = currentConversation;
       
       if (!convId) {
-        const convResponse = await apiClient.post('/ai/conversations', {
-          title: input.substring(0, 50),
-          initialMessage: input,
-        });
-        convId = convResponse.data.data.conversation.id;
-        setConversationId(convId);
-        
-        const assistantMessage = convResponse.data.data.firstMessage;
-        setMessages(prev => [...prev, assistantMessage]);
+        convId = await createNewConversation(userMessage);
+        if (!convId) {
+          setLoading(false);
+          return;
+        }
       } else {
-        const response = await apiClient.post(`/ai/conversations/${convId}/messages`, {
-          content: input,
+        await apiClient.post(`/ai-assistant/conversations/${convId}/messages`, {
+          content: userMessage,
         });
-        
-        const assistantMessage = response.data.data.assistantMessage;
-        setMessages(prev => [...prev, assistantMessage]);
       }
-    } catch (error: any) {
+
+      fetchMessages(convId);
+    } catch (error) {
       console.error('Failed to send message:', error);
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
-        createdAt: new Date().toISOString(),
-      }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto">
-      {/* Header - Fixed */}
-      <div className="bg-white border-b p-4 flex-shrink-0">
-        <h1 className="text-2xl font-bold">🤖 LOGOS AI Assistant</h1>
-        <p className="text-sm text-gray-600">Ask me anything about the Bible and faith</p>
-      </div>
-
-      {/* Messages - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
-        {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">✝️</div>
-            <h2 className="text-xl font-semibold mb-2">Welcome to LOGOS AI</h2>
-            <p className="text-gray-600 mb-6">Ask me about Bible verses, theology, or your spiritual journey</p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
-              <Button variant="outline" onClick={() => setInput("What does the Bible say about prayer?")} className="text-left">
-                📖 What does the Bible say about prayer?
-              </Button>
-              <Button variant="outline" onClick={() => setInput("How can I grow spiritually?")} className="text-left">
-                🌱 How can I grow spiritually?
-              </Button>
-              <Button variant="outline" onClick={() => setInput("Explain John 3:16")} className="text-left">
-                💡 Explain John 3:16
-              </Button>
-              <Button variant="outline" onClick={() => setInput("What is grace?")} className="text-left">
-                ✨ What is grace?
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <Card className={`max-w-[85%] md:max-w-[70%] p-3 ${
-                  msg.role === 'user' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white'
-                }`}>
-                  <p className="text-sm md:text-base whitespace-pre-wrap break-words">{msg.content}</p>
-                  <span className="text-xs opacity-70 mt-1 block">
-                    {new Date(msg.createdAt).toLocaleTimeString()}
-                  </span>
-                </Card>
+    <div className="h-[calc(100vh-12rem)] flex gap-4">
+      {/* Conversations sidebar */}
+      <Card className="w-64 p-4 overflow-y-auto">
+        <Button
+          onClick={() => {
+            setCurrentConversation(null);
+            setMessages([]);
+          }}
+          className="w-full mb-4"
+        >
+          + New Chat
+        </Button>
+        <div className="space-y-2">
+          {conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => setCurrentConversation(conv.id)}
+              className={`w-full text-left p-3 rounded-lg text-sm transition ${
+                currentConversation === conv.id
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              <div className="font-semibold truncate">{conv.title}</div>
+              <div className="text-xs text-gray-500">
+                {new Date(conv.updated_at).toLocaleDateString()}
               </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <Card className="max-w-[70%] p-3 bg-white">
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-                  </div>
-                </Card>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
-
-      {/* Input - Fixed at bottom */}
-      <div className="bg-white border-t p-3 md:p-4 flex-shrink-0">
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
-            placeholder="Ask about the Bible..."
-            disabled={loading}
-            className="flex-1 text-sm md:text-base"
-          />
-          <Button onClick={sendMessage} disabled={loading || !input.trim()} size="sm" className="px-4 md:px-6">
-            Send
-          </Button>
+            </button>
+          ))}
         </div>
-      </div>
+      </Card>
+
+      {/* Chat area */}
+      <Card className="flex-1 flex flex-col">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-bold">🤖 LOGOS AI Assistant</h2>
+          <p className="text-sm text-gray-600">Ask me anything about faith, Bible, or theology</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center text-gray-500 mt-8">
+              <p className="text-4xl mb-4">💬</p>
+              <p>Start a conversation with LOGOS AI</p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] p-4 rounded-lg ${
+                    message.role === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-900'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="p-4 border-t">
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              placeholder="Type your message..."
+              disabled={loading}
+            />
+            <Button onClick={sendMessage} disabled={loading || !input.trim()}>
+              {loading ? '...' : 'Send'}
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

@@ -13,10 +13,10 @@ interface PrayerRequest {
   category: string;
   status: string;
   prayer_count: number;
-  created_at: string;
-  author: {
+  user: {
     full_name: string;
   };
+  created_at: string;
 }
 
 export default function PrayersPage() {
@@ -38,12 +38,9 @@ export default function PrayersPage() {
     }
   };
 
-  const prayForRequest = async (id: string) => {
+  const prayForRequest = async (prayerId: string) => {
     try {
-      await apiClient.post(`/prayers/requests/${id}/pray`, {
-        message: 'Praying for you 🙏'
-      });
-      alert('Your prayer has been recorded!');
+      await apiClient.post(`/prayers/requests/${prayerId}/pray`);
       fetchPrayers();
     } catch (error) {
       console.error('Failed to pray:', error);
@@ -51,15 +48,18 @@ export default function PrayersPage() {
   };
 
   if (loading) {
-    return <div className="p-4 md:p-6">Loading prayer requests...</div>;
+    return <div>Loading prayers...</div>;
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold">🙏 Prayer Wall</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">🙏 Prayer Wall</h1>
+          <p className="text-gray-600 mt-1">Lift each other up in prayer</p>
+        </div>
         <Link href="/dashboard/prayers/new">
-          <Button size="sm" className="w-full sm:w-auto">+ New Prayer Request</Button>
+          <Button>+ New Request</Button>
         </Link>
       </div>
 
@@ -67,38 +67,34 @@ export default function PrayersPage() {
         <Card className="p-8 text-center">
           <p className="text-gray-500 mb-4">No prayer requests yet</p>
           <Link href="/dashboard/prayers/new">
-            <Button>Submit First Prayer Request</Button>
+            <Button>Submit First Request</Button>
           </Link>
         </Card>
       ) : (
         <div className="space-y-4">
           {prayers.map((prayer) => (
-            <Card key={prayer.id} className="p-4 md:p-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3">
-                <div className="flex-1">
-                  <h3 className="text-lg md:text-xl font-bold mb-1">{prayer.title}</h3>
-                  <p className="text-xs md:text-sm text-gray-500">
-                    by {prayer.author?.full_name || 'Anonymous'} • {new Date(prayer.created_at).toLocaleDateString()}
+            <Card key={prayer.id} className="p-6">
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="text-lg font-bold">{prayer.title}</h3>
+                  <p className="text-sm text-gray-500">
+                    by {prayer.user.full_name} • {new Date(prayer.created_at).toLocaleDateString()}
                   </p>
                 </div>
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                  {prayer.status}
+                  {prayer.category}
                 </span>
               </div>
-              
-              <p className="text-sm md:text-base text-gray-700 mb-4 line-clamp-3">{prayer.description}</p>
-              
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <span className="text-sm text-gray-600">
-                  🙏 {prayer.prayer_count} {prayer.prayer_count === 1 ? 'person' : 'people'} prayed
-                </span>
-                <Button 
-                  onClick={() => prayForRequest(prayer.id)}
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  Pray for This
+
+              <p className="text-gray-700 mb-4">{prayer.description}</p>
+
+              <div className="flex items-center gap-4">
+                <Button onClick={() => prayForRequest(prayer.id)} size="sm">
+                  🙏 Pray ({prayer.prayer_count})
                 </Button>
+                <span className="text-sm text-gray-500">
+                  Status: {prayer.status}
+                </span>
               </div>
             </Card>
           ))}
