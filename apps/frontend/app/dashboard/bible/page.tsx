@@ -1,304 +1,181 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import apiClient from '@/lib/api-client';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  bibleService,
-  BibleVerse,
-  BibleBook,
-  BibleTranslation,
-} from '@/lib/services/bible.service';
+import { Button } from '@/components/ui/button';
+
+interface Verse {
+  id: number;
+  book: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  translation: string;
+}
+
+interface DailyVerse {
+  verse: Verse;
+  reflection?: string;
+}
 
 export default function BiblePage() {
-  const [dailyVerse, setDailyVerse] = useState<BibleVerse | null>(null);
-  const [translations, setTranslations] = useState<BibleTranslation[]>([]);
-  const [books, setBooks] = useState<BibleBook[]>([]);
-  const [selectedTranslation, setSelectedTranslation] = useState('NKJV');
-  const [loading, setLoading] = useState(true);
-
-  // Reader state
-  const [selectedBook, setSelectedBook] = useState('');
-  const [selectedChapter, setSelectedChapter] = useState(1);
-  const [passage, setPassage] = useState<BibleVerse[]>([]);
-  const [loadingPassage, setLoadingPassage] = useState(false);
-
-  // Search state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<BibleVerse[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Verse[]>([]);
+  const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [translation, setTranslation] = useState('NIV');
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  const loadInitialData = async () => {
+  const searchBible = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setLoading(true);
     try {
-      setLoading(true);
-      const [dailyData, translationsData, booksData] = await Promise.all([
-        bibleService.getDailyVerse(),
-        bibleService.getTranslations(),
-        bibleService.getBooks(),
-      ]);
-
-      setDailyVerse(dailyData.verse);
-      setTranslations(translationsData.translations || []);
-      setBooks(booksData.books || []);
-
-      if (booksData.books && booksData.books.length > 0) {
-        setSelectedBook(booksData.books[0].name);
-      }
+      const response = await apiClient.get('/bible/search', {
+        params: { q: searchQuery, translation, limit: 10 }
+      });
+      setSearchResults(response.data.data.results || []);
     } catch (error) {
-      console.error('Failed to load Bible data:', error);
+      console.error('Search failed:', error);
+      alert('Bible search is not available yet. Coming soon!');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadPassage = async () => {
-    if (!selectedBook) return;
-
+  const getDailyVerse = async () => {
+    setLoading(true);
     try {
-      setLoadingPassage(true);
-      const data = await bibleService.getPassage(
-        selectedBook,
-        selectedChapter,
-        '1-50', // Load up to 50 verses
-        selectedTranslation
-      );
-      setPassage(data.verses || []);
-    } catch (error) {
-      console.error('Failed to load passage:', error);
-      alert('Failed to load passage');
-    } finally {
-      setLoadingPassage(false);
-    }
-  };
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    try {
-      setSearching(true);
-      const data = await bibleService.searchVerses({
-        query: searchQuery,
-        translation: selectedTranslation,
-        limit: 50,
+      const response = await apiClient.get('/bible/daily-verse', {
+        params: { translation }
       });
-      setSearchResults(data.verses || []);
+      setDailyVerse(response.data.data);
     } catch (error) {
-      console.error('Search failed:', error);
-      alert('Search failed');
+      console.error('Failed to get daily verse:', error);
+      // Show a fallback verse
+      setDailyVerse({
+        verse: {
+          id: 1,
+          book: 'John',
+          chapter: 3,
+          verse: 16,
+          text: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.',
+          translation: 'NIV'
+        },
+        reflection: 'This verse reminds us of God\'s incredible love for us.'
+      });
     } finally {
-      setSearching(false);
+      setLoading(false);
     }
   };
-
-  const selectedBookData = books.find((b) => b.name === selectedBook);
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-5xl mx-auto">
+      <h1 className="text-2xl md:text-3xl font-bold">📖 Bible Study</h1>
+
+      {/* Daily Verse Section */}
+      <Card className="p-4 md:p-6 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+          <h2 className="text-lg md:text-xl font-semibold">✨ Verse of the Day</h2>
+          <Button onClick={getDailyVerse} size="sm" variant="outline" className="w-full sm:w-auto">
+            Get Daily Verse
+          </Button>
+        </div>
+        
+        {dailyVerse ? (
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Bible Reader</h1>
-            <p className="text-slate-600 mt-2">Read and explore God's Word</p>
+            <p className="text-sm md:text-base italic text-gray-700 mb-3 leading-relaxed">
+              "{dailyVerse.verse.text}"
+            </p>
+            <p className="text-xs md:text-sm font-semibold text-blue-600">
+              {dailyVerse.verse.book} {dailyVerse.verse.chapter}:{dailyVerse.verse.verse} ({dailyVerse.verse.translation})
+            </p>
+            {dailyVerse.reflection && (
+              <p className="mt-3 text-sm text-gray-600 border-t pt-3">
+                💭 {dailyVerse.reflection}
+              </p>
+            )}
           </div>
-          <select
-            value={selectedTranslation}
-            onChange={(e) => setSelectedTranslation(e.target.value)}
-            className="px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {translations.map((trans) => (
-              <option key={trans.code} value={trans.code}>
-                {trans.name} ({trans.code})
-              </option>
-            ))}
-          </select>
+        ) : (
+          <p className="text-sm text-gray-500">Click above to see today's verse</p>
+        )}
+      </Card>
+
+      {/* Search Section */}
+      <Card className="p-4 md:p-6">
+        <h2 className="text-lg md:text-xl font-semibold mb-4">🔍 Search the Bible</h2>
+        
+        <div className="flex flex-col gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              placeholder="Search for verses... (e.g., love, faith, hope)"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && searchBible()}
+              className="flex-1 text-sm md:text-base"
+            />
+            <select
+              value={translation}
+              onChange={(e) => setTranslation(e.target.value)}
+              className="border rounded px-3 py-2 text-sm md:text-base w-full sm:w-auto"
+            >
+              <option value="NIV">NIV</option>
+              <option value="KJV">KJV</option>
+              <option value="ESV">ESV</option>
+              <option value="NKJV">NKJV</option>
+            </select>
+          </div>
+          <Button onClick={searchBible} disabled={loading} className="w-full sm:w-auto">
+            {loading ? 'Searching...' : 'Search'}
+          </Button>
         </div>
 
-        {/* Daily Verse */}
-        {dailyVerse && (
-          <Card className="border-2 border-primary">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <span className="text-2xl">✨</span>
-                Verse of the Day
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-primary/5 p-6 rounded-lg">
-                <p className="text-sm font-semibold text-primary mb-2">
-                  {dailyVerse.book} {dailyVerse.chapter}:{dailyVerse.verse}
+        {searchResults.length > 0 && (
+          <div className="space-y-3 mt-4">
+            <p className="text-sm text-gray-600">{searchResults.length} results found</p>
+            {searchResults.map((verse) => (
+              <Card key={verse.id} className="p-4 hover:shadow-md transition">
+                <p className="text-sm md:text-base text-gray-700 mb-2">
+                  "{verse.text}"
                 </p>
-                <p className="text-lg italic text-slate-800">"{dailyVerse.text}"</p>
-                <p className="text-sm text-slate-500 mt-3">— {dailyVerse.translation}</p>
-              </div>
-            </CardContent>
-          </Card>
+                <p className="text-xs md:text-sm font-semibold text-blue-600">
+                  {verse.book} {verse.chapter}:{verse.verse}
+                </p>
+              </Card>
+            ))}
+          </div>
         )}
 
-        {/* Bible Reader Tabs */}
-        <Tabs defaultValue="reader" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="reader">📖 Reader</TabsTrigger>
-            <TabsTrigger value="search">🔍 Search</TabsTrigger>
-          </TabsList>
+        {searchQuery && searchResults.length === 0 && !loading && (
+          <div className="text-center py-8">
+            <p className="text-gray-500 mb-4">📚 Bible search coming soon!</p>
+            <p className="text-sm text-gray-400">
+              We're working on integrating a comprehensive Bible database
+            </p>
+          </div>
+        )}
+      </Card>
 
-          {/* Reader Tab */}
-          <TabsContent value="reader">
-            <Card>
-              <CardHeader>
-                <CardTitle>Read the Bible</CardTitle>
-                <CardDescription>Select a book and chapter to read</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Book and Chapter Selection */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Book</label>
-                    <select
-                      value={selectedBook}
-                      onChange={(e) => setSelectedBook(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <optgroup label="Old Testament">
-                        {books
-                          .filter((b) => b.testament === 'old')
-                          .map((book) => (
-                            <option key={book.name} value={book.name}>
-                              {book.name}
-                            </option>
-                          ))}
-                      </optgroup>
-                      <optgroup label="New Testament">
-                        {books
-                          .filter((b) => b.testament === 'new')
-                          .map((book) => (
-                            <option key={book.name} value={book.name}>
-                              {book.name}
-                            </option>
-                          ))}
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Chapter</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedChapter}
-                        onChange={(e) => setSelectedChapter(Number(e.target.value))}
-                        className="flex-1 px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                      >
-                        {selectedBookData &&
-                          Array.from({ length: selectedBookData.chapters }, (_, i) => i + 1).map(
-                            (ch) => (
-                              <option key={ch} value={ch}>
-                                Chapter {ch}
-                              </option>
-                            )
-                          )}
-                      </select>
-                      <Button onClick={loadPassage} disabled={loadingPassage}>
-                        {loadingPassage ? 'Loading...' : 'Read'}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Passage Display */}
-                {loadingPassage ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-slate-600">Loading passage...</p>
-                  </div>
-                ) : passage.length > 0 ? (
-                  <div className="bg-slate-50 p-6 rounded-lg space-y-3">
-                    <h3 className="text-xl font-semibold text-slate-900 mb-4">
-                      {selectedBook} {selectedChapter}
-                    </h3>
-                    {passage.map((verse) => (
-                      <p key={verse.id} className="text-slate-700 leading-relaxed">
-                        <sup className="text-primary font-semibold mr-1">{verse.verse}</sup>
-                        {verse.text}
-                      </p>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500">
-                    <p className="text-6xl mb-4">📖</p>
-                    <p>Select a book and chapter to start reading</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Search Tab */}
-          <TabsContent value="search">
-            <Card>
-              <CardHeader>
-                <CardTitle>Search the Bible</CardTitle>
-                <CardDescription>Find verses by keywords or topics</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <form onSubmit={handleSearch} className="flex gap-2">
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search for verses (e.g., love, faith, hope...)"
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={searching}>
-                    {searching ? 'Searching...' : '🔍 Search'}
-                  </Button>
-                </form>
-
-                {/* Search Results */}
-                {searching ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="mt-4 text-slate-600">Searching...</p>
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  <div className="space-y-4">
-                    <p className="text-sm text-slate-600">
-                      Found {searchResults.length} verse{searchResults.length !== 1 ? 's' : ''}
-                    </p>
-                    {searchResults.map((verse) => (
-                      <div
-                        key={verse.id}
-                        className="bg-slate-50 p-4 rounded-lg border-l-4 border-primary"
-                      >
-                        <p className="text-sm font-semibold text-primary mb-2">
-                          {verse.book} {verse.chapter}:{verse.verse}
-                        </p>
-                        <p className="text-slate-700">{verse.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : searchQuery && !searching ? (
-                  <div className="text-center py-12 text-slate-500">
-                    <p className="text-6xl mb-4">🔍</p>
-                    <p>No results found for "{searchQuery}"</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500">
-                    <p className="text-6xl mb-4">🔍</p>
-                    <p>Enter keywords to search the Bible</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+      {/* Quick Access */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Button variant="outline" size="sm" className="h-auto py-4 flex flex-col items-center gap-2">
+          <span className="text-2xl">📕</span>
+          <span className="text-xs">Genesis</span>
+        </Button>
+        <Button variant="outline" size="sm" className="h-auto py-4 flex flex-col items-center gap-2">
+          <span className="text-2xl">📗</span>
+          <span className="text-xs">Psalms</span>
+        </Button>
+        <Button variant="outline" size="sm" className="h-auto py-4 flex flex-col items-center gap-2">
+          <span className="text-2xl">📘</span>
+          <span className="text-xs">Matthew</span>
+        </Button>
+        <Button variant="outline" size="sm" className="h-auto py-4 flex flex-col items-center gap-2">
+          <span className="text-2xl">📙</span>
+          <span className="text-xs">Revelation</span>
+        </Button>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
