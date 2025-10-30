@@ -1,286 +1,162 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+import apiClient from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { aiAssistantService, AIConversation, AIMessage } from '@/lib/services/ai-assistant.service';
+import { Card } from '@/components/ui/card';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
 
 export default function AIAssistantPage() {
-  const [conversations, setConversations] = useState<AIConversation[]>([]);
-  const [currentConversation, setCurrentConversation] = useState<AIConversation | null>(null);
-  const [messages, setMessages] = useState<AIMessage[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadConversations = async () => {
-    try {
-      setLoading(true);
-      const data = await aiAssistantService.getConversations();
-      setConversations(data.conversations || []);
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-  const loadConversation = async (conversationId: string) => {
-    try {
-      setLoading(true);
-      const data = await aiAssistantService.getConversation(conversationId);
-      setCurrentConversation(data.conversation);
-      setMessages(data.messages || []);
-    } catch (error) {
-      console.error('Failed to load conversation:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const sendMessage = async () => {
+    if (!input.trim()) return;
 
-  const createNewConversation = async () => {
-    try {
-      setLoading(true);
-      const data = await aiAssistantService.createConversation();
-      setCurrentConversation(data.conversation);
-      setMessages([]);
-      await loadConversations();
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: input,
+      createdAt: new Date().toISOString(),
+    };
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || sending) return;
-
-    const messageContent = inputMessage.trim();
-    setInputMessage('');
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
 
     try {
-      setSending(true);
-
-      // If no conversation, create one first
-      if (!currentConversation) {
-        const data = await aiAssistantService.createConversation(messageContent);
-        setCurrentConversation(data.conversation);
-        setMessages(data.messages || []);
-        await loadConversations();
-      } else {
-        // Add user message immediately
-        const userMessage: AIMessage = {
-          id: 'temp-' + Date.now(),
-          role: 'user',
-          content: messageContent,
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, userMessage]);
-
-        // Send message and get response
-        const data = await aiAssistantService.sendMessage(
-          currentConversation.id,
-          messageContent
-        );
+      let convId = conversationId;
+      
+      if (!convId) {
+        const convResponse = await apiClient.post('/ai/conversations', {
+          title: input.substring(0, 50),
+          initialMessage: input,
+        });
+        convId = convResponse.data.data.conversation.id;
+        setConversationId(convId);
         
-        // Replace temp message with real messages
-        setMessages(data.messages || []);
+        const assistantMessage = convResponse.data.data.firstMessage;
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        const response = await apiClient.post(`/ai/conversations/${convId}/messages`, {
+          content: input,
+        });
+        
+        const assistantMessage = response.data.data.assistantMessage;
+        setMessages(prev => [...prev, assistantMessage]);
       }
     } catch (error: any) {
       console.error('Failed to send message:', error);
-      alert(error.response?.data?.message || 'Failed to send message');
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        createdAt: new Date().toISOString(),
+      }]);
     } finally {
-      setSending(false);
-    }
-  };
-
-  const handleDeleteConversation = async (conversationId: string) => {
-    if (!confirm('Are you sure you want to delete this conversation?')) return;
-
-    try {
-      await aiAssistantService.deleteConversation(conversationId);
-      if (currentConversation?.id === conversationId) {
-        setCurrentConversation(null);
-        setMessages([]);
-      }
-      await loadConversations();
-    } catch (error) {
-      console.error('Failed to delete conversation:', error);
+      setLoading(false);
     }
   };
 
   return (
-    <DashboardLayout>
-      <div className="flex gap-4 h-[calc(100vh-8rem)]">
-        {/* Sidebar - Conversation List */}
-        <aside className="w-80 bg-white rounded-lg border border-slate-200 flex flex-col">
-          <div className="p-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold mb-3">Conversations</h2>
-            <Button onClick={createNewConversation} className="w-full" disabled={loading}>
-              ✨ New Conversation
-            </Button>
-          </div>
+    <div className="flex flex-col h-[calc(100vh-8rem)] max-w-4xl mx-auto">
+      {/* Header - Fixed */}
+      <div className="bg-white border-b p-4 flex-shrink-0">
+        <h1 className="text-2xl font-bold">🤖 LOGOS AI Assistant</h1>
+        <p className="text-sm text-gray-600">Ask me anything about the Bible and faith</p>
+      </div>
 
-          <div className="flex-1 overflow-y-auto p-2">
-            {loading && conversations.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">Loading...</div>
-            ) : conversations.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">
-                No conversations yet. Start a new one!
-              </div>
-            ) : (
-              conversations.map((conv) => (
-                <div
-                  key={conv.id}
-                  onClick={() => loadConversation(conv.id)}
-                  className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors ${
-                    currentConversation?.id === conv.id
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{conv.title}</p>
-                      <p className={`text-xs mt-1 ${
-                        currentConversation?.id === conv.id ? 'text-white/80' : 'text-slate-500'
-                      }`}>
-                        {new Date(conv.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteConversation(conv.id);
-                      }}
-                      className={`text-xl hover:scale-110 transition-transform ${
-                        currentConversation?.id === conv.id ? 'text-white' : 'text-slate-400'
-                      }`}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+      {/* Messages - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        {messages.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">✝️</div>
+            <h2 className="text-xl font-semibold mb-2">Welcome to LOGOS AI</h2>
+            <p className="text-gray-600 mb-6">Ask me about Bible verses, theology, or your spiritual journey</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl mx-auto">
+              <Button variant="outline" onClick={() => setInput("What does the Bible say about prayer?")} className="text-left">
+                📖 What does the Bible say about prayer?
+              </Button>
+              <Button variant="outline" onClick={() => setInput("How can I grow spiritually?")} className="text-left">
+                🌱 How can I grow spiritually?
+              </Button>
+              <Button variant="outline" onClick={() => setInput("Explain John 3:16")} className="text-left">
+                💡 Explain John 3:16
+              </Button>
+              <Button variant="outline" onClick={() => setInput("What is grace?")} className="text-left">
+                ✨ What is grace?
+              </Button>
+            </div>
           </div>
-        </aside>
-
-        {/* Main Chat Area */}
-        <div className="flex-1 bg-white rounded-lg border border-slate-200 flex flex-col">
-          {/* Chat Header */}
-          <div className="p-4 border-b border-slate-200">
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <span className="text-2xl">🤖</span>
-              AI Spiritual Assistant
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Ask me anything about faith, scripture, or spiritual guidance
-            </p>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {!currentConversation ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center max-w-md">
-                  <div className="text-6xl mb-4">🤖</div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Welcome to AI Spiritual Assistant
-                  </h3>
-                  <p className="text-slate-600 mb-6">
-                    Start a conversation to receive spiritual guidance, explore scripture, or ask
-                    questions about your faith journey.
-                  </p>
-                  <Button onClick={createNewConversation}>Start Conversation</Button>
-                </div>
+        ) : (
+          <>
+            {messages.map((msg) => (
+              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <Card className={`max-w-[85%] md:max-w-[70%] p-3 ${
+                  msg.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white'
+                }`}>
+                  <p className="text-sm md:text-base whitespace-pre-wrap break-words">{msg.content}</p>
+                  <span className="text-xs opacity-70 mt-1 block">
+                    {new Date(msg.createdAt).toLocaleTimeString()}
+                  </span>
+                </Card>
               </div>
-            ) : messages.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-slate-400">
-                Start typing to begin the conversation...
-              </div>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-4 ${
-                      message.role === 'user'
-                        ? 'bg-primary text-white'
-                        : 'bg-slate-100 text-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="text-xl">
-                        {message.role === 'user' ? '👤' : '🤖'}
-                      </span>
-                      <div className="flex-1">
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                        <p
-                          className={`text-xs mt-2 ${
-                            message.role === 'user' ? 'text-white/70' : 'text-slate-500'
-                          }`}
-                        >
-                          {new Date(message.createdAt).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-            {sending && (
+            ))}
+            {loading && (
               <div className="flex justify-start">
-                <div className="max-w-[70%] rounded-lg p-4 bg-slate-100">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🤖</span>
-                    <div className="flex gap-1">
-                      <span className="animate-bounce">●</span>
-                      <span className="animate-bounce delay-100">●</span>
-                      <span className="animate-bounce delay-200">●</span>
-                    </div>
+                <Card className="max-w-[70%] p-3 bg-white">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
                   </div>
-                </div>
+                </Card>
               </div>
             )}
             <div ref={messagesEndRef} />
-          </div>
+          </>
+        )}
+      </div>
 
-          {/* Input Area */}
-          <div className="p-4 border-t border-slate-200">
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <Input
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Type your message..."
-                disabled={sending}
-                className="flex-1"
-              />
-              <Button type="submit" disabled={sending || !inputMessage.trim()}>
-                {sending ? '⏳' : '📤'} Send
-              </Button>
-            </form>
-          </div>
+      {/* Input - Fixed at bottom */}
+      <div className="bg-white border-t p-3 md:p-4 flex-shrink-0">
+        <div className="flex gap-2">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && !loading && sendMessage()}
+            placeholder="Ask about the Bible..."
+            disabled={loading}
+            className="flex-1 text-sm md:text-base"
+          />
+          <Button onClick={sendMessage} disabled={loading || !input.trim()} size="sm" className="px-4 md:px-6">
+            Send
+          </Button>
         </div>
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
