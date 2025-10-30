@@ -1,9 +1,10 @@
 import { Response } from 'express';
 
-export const sendSuccess = (
+// Legacy function names for backward compatibility
+export const successResponse = (
   res: Response,
-  data: any,
   message: string = 'Success',
+  data: any = null,
   statusCode: number = 200
 ) => {
   return res.status(statusCode).json({
@@ -13,7 +14,7 @@ export const sendSuccess = (
   });
 };
 
-export const sendError = (
+export const errorResponse = (
   res: Response,
   message: string = 'Error occurred',
   statusCode: number = 500,
@@ -27,6 +28,10 @@ export const sendError = (
     },
   });
 };
+
+// New function names (same functionality)
+export const sendSuccess = successResponse;
+export const sendError = errorResponse;
 
 export const sendPaginatedResponse = (
   res: Response,
