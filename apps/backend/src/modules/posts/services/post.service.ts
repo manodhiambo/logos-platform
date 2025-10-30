@@ -18,8 +18,8 @@ class PostService {
       postType: data.postType || 'discussion',
       attachments: data.attachments || [],
       isPinned: false,
-      likesCount: 0,
-      commentsCount: 0,
+      likeCount: 0,
+      commentCount: 0,
     });
 
     // Fetch post with author details
@@ -61,7 +61,7 @@ class PostService {
     }
 
     const orderBy: Order = filters.sort === 'popular' 
-      ? [['likesCount', 'DESC'], ['createdAt', 'DESC']]
+      ? [['likeCount', 'DESC'], ['createdAt', 'DESC']]
       : [['createdAt', 'DESC']];
 
     const { rows: posts, count: total } = await Post.findAndCountAll({
@@ -216,20 +216,20 @@ class PostService {
     if (existingLike) {
       // Unlike
       await existingLike.destroy();
-      await post.decrement('likesCount', { by: 1 });
+      await post.decrement('likeCount', { by: 1 });
 
       return {
         liked: false,
-        likesCount: post.likesCount - 1,
+        likeCount: post.likeCount - 1,
       };
     } else {
       // Like
       await PostLike.create({ postId, userId });
-      await post.increment('likesCount', { by: 1 });
+      await post.increment('likeCount', { by: 1 });
 
       return {
         liked: true,
-        likesCount: post.likesCount + 1,
+        likeCount: post.likeCount + 1,
       };
     }
   }
