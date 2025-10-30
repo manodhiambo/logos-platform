@@ -6,17 +6,16 @@ interface PrayerAttributes {
   userId: string;
   prayerRequestId?: string;
   message?: string; 
-  title: string;
-  description: string;
-  category: string;
-  privacyLevel: string;
-  status: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  privacyLevel?: string;
+  status?: string;
   prayerCount: number;
   isAnswered: boolean;
   answeredAt?: Date;
   testimonyText?: string;
   expiresAt?: Date;
-  message?: string; // ✅ Added this field to fix TS2353
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -30,6 +29,11 @@ interface PrayerCreationAttributes
     | 'isAnswered'
     | 'createdAt'
     | 'updatedAt'
+    | 'title'
+    | 'description'
+    | 'category'
+    | 'privacyLevel'
+    | 'status'
     | 'message'
   > {}
 
@@ -38,17 +42,17 @@ class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes>
   public id!: string;
   public userId!: string;
   public prayerRequestId?: string;
-  public title!: string;
-  public description!: string;
-  public category!: string;
-  public privacyLevel!: string;
-  public status!: string;
+  public message?: string;
+  public title?: string;
+  public description?: string;
+  public category?: string;
+  public privacyLevel?: string;
+  public status?: string;
   public prayerCount!: number;
   public isAnswered!: boolean;
   public answeredAt?: Date;
   public testimonyText?: string;
   public expiresAt?: Date;
-  public message?: string; // ✅ Added this property
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -80,23 +84,25 @@ Prayer.init(
     },
     title: {
       type: DataTypes.STRING(255),
-      allowNull: false,
+      allowNull: true,
     },
     description: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
     },
     category: {
       type: DataTypes.STRING(50),
-      allowNull: false,
+      allowNull: true,
     },
     privacyLevel: {
       type: DataTypes.STRING(20),
+      allowNull: true,
       defaultValue: 'public',
       field: 'privacy_level',
     },
     status: {
       type: DataTypes.STRING(20),
+      allowNull: true,
       defaultValue: 'active',
     },
     prayerCount: {
@@ -124,10 +130,6 @@ Prayer.init(
       allowNull: true,
       field: 'expires_at',
     },
-    message: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    }, // ✅ Added this column
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
