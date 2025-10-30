@@ -23,7 +23,7 @@ class CommunityService {
     await CommunityMember.create({
       communityId: community.id,
       userId: userId,
-      role: 'admin',
+      role: 'owner',
     });
 
     return community;
@@ -124,7 +124,7 @@ class CommunityService {
 
     // Check if user is admin
     const membership = await CommunityMember.findOne({
-      where: { communityId, userId, role: 'admin' },
+      where: { communityId, userId, role: 'owner' },
     });
 
     if (!membership) {
@@ -155,7 +155,7 @@ class CommunityService {
 
     // Check if user is admin
     const membership = await CommunityMember.findOne({
-      where: { communityId, userId, role: 'admin' },
+      where: { communityId, userId, role: 'owner' },
     });
 
     if (!membership) {
@@ -221,9 +221,9 @@ class CommunityService {
     }
 
     // Check if user is the only admin
-    if (membership.role === 'admin') {
+    if (membership.role === 'owner') {
       const adminCount = await CommunityMember.count({
-        where: { communityId, role: 'admin' },
+        where: { communityId, role: 'owner' },
       });
 
       if (adminCount === 1) {
@@ -281,12 +281,12 @@ class CommunityService {
   async updateMemberRole(
     communityId: string,
     memberId: string,
-    newRole: 'admin' | 'moderator' | 'member',
+    newRole: 'owner' | 'moderator' | 'member',
     requesterId: string
   ) {
     // Check if requester is admin
     const requesterMembership = await CommunityMember.findOne({
-      where: { communityId, userId: requesterId, role: 'admin' },
+      where: { communityId, userId: requesterId, role: 'owner' },
     });
 
     if (!requesterMembership) {
@@ -303,9 +303,9 @@ class CommunityService {
     }
 
     // If demoting an admin, check if there will be at least one admin left
-    if (targetMembership.role === 'admin' && newRole !== 'admin') {
+    if (targetMembership.role === 'owner' && newRole !== 'owner') {
       const adminCount = await CommunityMember.count({
-        where: { communityId, role: 'admin' },
+        where: { communityId, role: 'owner' },
       });
 
       if (adminCount === 1) {
