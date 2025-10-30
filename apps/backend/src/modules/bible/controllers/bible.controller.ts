@@ -1,128 +1,67 @@
-import { Request, Response, NextFunction } from 'express';
-import bibleService from '../services/bible.service';
-import { successResponse } from '../../../shared/utils/response.util';
+import { Request, Response } from 'express';
+import { BibleService } from '../services/bible.service';
+import { sendSuccess, sendError } from '../../../shared/utils/response.util';
 
-class BibleController {
-  /**
-   * Search Bible verses
-   */
-  async searchVerses(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { q, translation = 'nkjv', page = 1, limit = 20 } = req.query;
+const bibleService = new BibleService();
 
-      if (!q || typeof q !== 'string') {
-        return res.status(400).json({
-          success: false,
-          message: 'Search query is required',
-        });
-      }
-
-      const result = await bibleService.searchVerses(
-        q,
-        translation as string,
-        Number(page),
-        Number(limit)
-      );
-
-      return successResponse(res, 'Verses retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
+export const searchBible = async (req: Request, res: Response) => {
+  try {
+    const searchQuery = req.query.q || req.query.query as string;
+    const translation = (req.query.translation as string) || 'NKJV';
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    if (!searchQuery) {
+      return sendError(res, 'Search query is required', 400);
     }
+
+    const results = await bibleService.searchVerses(searchQuery, translation, limit);
+    sendSuccess(res, { results }, 'Search completed successfully');
+  } catch (error: any) {
+    console.error('Bible search error:', error);
+    sendError(res, error.message || 'Failed to search Bible', 500);
   }
+};
 
-  /**
-   * Get specific verse
-   */
-  async getVerse(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { book, chapter, verse } = req.params;
-      const { translation = 'nkjv' } = req.query;
-
-      const result = await bibleService.getVerse(
-        book,
-        Number(chapter),
-        Number(verse),
-        translation as string
-      );
-
-      return successResponse(res, 'Verse retrieved successfully', { verse: result });
-    } catch (error: any) {
-      next(error);
-    }
+export const getVerse = async (req: Request, res: Response) => {
+  try {
+    const { book, chapter, verse } = req.params;
+    const translation = (req.query.translation as string) || 'NKJV';
+    
+    const verseData = await bibleService.getVerse(book, parseInt(chapter), parseInt(verse), translation);
+    sendSuccess(res, { verse: verseData }, 'Verse retrieved successfully');
+  } catch (error: any) {
+    console.error('Get verse error:', error);
+    sendError(res, error.message || 'Failed to get verse', 500);
   }
+};
 
-  /**
-   * Get Bible passage (range of verses)
-   */
-  async getPassage(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { book, chapter, verseRange } = req.params;
-      const { translation = 'nkjv' } = req.query;
-
-      // Parse verse range (e.g., "1-6")
-      const [verseStart, verseEnd] = verseRange.split('-').map(Number);
-
-      if (!verseStart || !verseEnd) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid verse range format. Use: verseStart-verseEnd',
-        });
-      }
-
-      const result = await bibleService.getPassage(
-        book,
-        Number(chapter),
-        verseStart,
-        verseEnd,
-        translation as string
-      );
-
-      return successResponse(res, 'Passage retrieved successfully', { passage: result });
-    } catch (error: any) {
-      next(error);
-    }
+export const getDailyVerse = async (req: Request, res: Response) => {
+  try {
+    const translation = (req.query.translation as string) || 'NKJV';
+    const date = req.query.date as string;
+    
+    const dailyVerse = await bibleService.getDailyVerse(translation, date);
+    sendSuccess(res, dailyVerse, 'Daily verse retrieved successfully');
+  } catch (error: any) {
+    console.error('Get daily verse error:', error);
+    sendError(res, error.message || 'Failed to get daily verse', 500);
   }
+};
 
-  /**
-   * Get daily verse
-   */
-  async getDailyVerse(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { translation = 'nkjv' } = req.query;
-
-      const result = await bibleService.getDailyVerse(translation as string);
-
-      return successResponse(res, 'Daily verse retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
-    }
+export const getBooks = async (req: Request, res: Response) => {
+  try {
+    const books = await bibleService.getBooks();
+    sendSuccess(res, { books }, 'Books retrieved successfully');
+  } catch (error: any) {
+    sendError(res, error.message || 'Failed to get books', 500);
   }
+};
 
-  /**
-   * Get available translations
-   */
-  async getTranslations(req: Request, res: Response, next: NextFunction) {
-    try {
-      const translations = await bibleService.getTranslations();
-
-      return successResponse(res, 'Translations retrieved successfully', { translations });
-    } catch (error: any) {
-      next(error);
-    }
+export const getTranslations = async (req: Request, res: Response) => {
+  try {
+    const translations = await bibleService.getTranslations();
+    sendSuccess(res, { translations }, 'Translations retrieved successfully');
+  } catch (error: any) {
+    sendError(res, error.message || 'Failed to get translations', 500);
   }
-
-  /**
-   * Get books of the Bible
-   */
-  async getBooks(req: Request, res: Response, next: NextFunction) {
-    try {
-      const books = bibleService.getBibleBooks();
-
-      return successResponse(res, 'Bible books retrieved successfully', books);
-    } catch (error: any) {
-      next(error);
-    }
-  }
-}
-
-export default new BibleController();
+};
