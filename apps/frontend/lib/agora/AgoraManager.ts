@@ -3,8 +3,6 @@ import AgoraRTC, {
   IAgoraRTCRemoteUser,
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
-  IRemoteVideoTrack,
-  IRemoteAudioTrack,
 } from 'agora-rtc-sdk-ng';
 
 export interface AgoraConfig {
@@ -68,12 +66,10 @@ export class AgoraManager {
         this.config.uid
       );
 
-      // Create local tracks
+      // Create local tracks with correct config
       [this.localAudioTrack, this.localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
-        {
-          audioConfig: { encoderConfig: 'music_standard' },
-          videoConfig: { encoderConfig: '720p_2' },
-        }
+        {},
+        { encoderConfig: '720p_2' }
       );
 
       // Publish local tracks
