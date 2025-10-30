@@ -4,6 +4,7 @@ import { sequelize } from '../../../config/database.config';
 interface PrayerAttributes {
   id: string;
   userId: string;
+  prayerRequestId?: string;
   title: string;
   description: string;
   category: string;
@@ -18,11 +19,12 @@ interface PrayerAttributes {
   updatedAt?: Date;
 }
 
-interface PrayerCreationAttributes extends Optional<PrayerAttributes, 'id' | 'prayerCount' | 'isAnswered' | 'createdAt' | 'updatedAt'> {}
+interface PrayerCreationAttributes extends Optional<PrayerAttributes, 'id' | 'prayerRequestId' | 'prayerCount' | 'isAnswered' | 'createdAt' | 'updatedAt'> {}
 
 class Prayer extends Model<PrayerAttributes, PrayerCreationAttributes> implements PrayerAttributes {
   public id!: string;
   public userId!: string;
+  public prayerRequestId?: string;
   public title!: string;
   public description!: string;
   public category!: string;
@@ -48,6 +50,15 @@ Prayer.init(
       type: DataTypes.UUID,
       allowNull: false,
       field: 'user_id',
+    },
+    prayerRequestId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      field: 'prayer_request_id',
+      references: {
+        model: 'prayer_requests',
+        key: 'id',
+      },
     },
     title: {
       type: DataTypes.STRING(255),
