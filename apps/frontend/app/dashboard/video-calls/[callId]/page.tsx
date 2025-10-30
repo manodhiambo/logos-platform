@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { AgoraManager } from '@/lib/agora/AgoraManager';
+import type { IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 
 export default function CallRoomPage() {
   const params = useParams();
@@ -14,80 +16,157 @@ export default function CallRoomPage() {
   const { user } = useAuth();
   
   const callId = params.callId as string;
-  const token = searchParams.get('token');
+  const agoraToken = searchParams.get('token');
   
   const [call, setCall] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [agoraReady, setAgoraReady] = useState(false);
   
-  const localVideoRef = useRef<HTMLDivElement>(null);
-  const remoteVideosRef = useRef<HTMLDivElement>(null);
+  const agoraManagerRef = useRef<AgoraManager | null>(null);
 
   useEffect(() => {
-    if (!token) {
+    if (!agoraToken) {
       alert('Invalid call link');
       router.push('/dashboard/video-calls');
       return;
     }
     
-    fetchCallDetails();
-    // Initialize Agora here when you add the SDK
+    initializeCall();
     
     return () => {
-      // Cleanup: leave call when component unmounts
-      leaveCall();
+      cleanup();
     };
-  }, [callId, token]);
+  }, [callId, agoraToken]);
 
-  const fetchCallDetails = async () => {
+  const initializeCall = async () => {
     try {
+      // Fetch call details
       const response = await apiClient.get(`/video-calls/${callId}`);
-      setCall(response.data.data.call);
+      const callData = response.data.data.call;
+      setCall(callData);
       setParticipants(response.data.data.participants || []);
+
+      // Initialize Agora
+      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
+      if (!appId) {
+        console.warn('Agora App ID not configured');
+        setLoading(false);
+        return;
+      }
+
+      const agoraManager = new AgoraManager({
+        appId: appId,
+        channel: callData.channel_name,
+        token: agoraToken || '',
+        uid: user?.id || Math.floor(Math.random() * 100000),
+      });
+
+      // Setup callbacks
+      agoraManager.onUserJoined = (remoteUser) => {
+        console.log('Remote user joined:', remoteUser.uid);
+        setRemoteUsers(prev => [...prev, remoteUser]);
+        
+        // Play remote video after a short delay
+        setTimeout(() => {
+          agoraManager.playRemoteVideo(remoteUser, `remote-${remoteUser.uid}`);
+        }, 100);
+      };
+
+      agoraManager.onUserLeft = (remoteUser) => {
+        console.log('Remote user left:', remoteUser.uid);
+        setRemoteUsers(prev => prev.filter(u => u.uid !== remoteUser.uid));
+      };
+
+      // Join the call
+      const tracks = await agoraManager.join();
+      
+      // Play local video
+      setTimeout(() => {
+        agoraManager.playLocalVideo('local-video');
+      }, 100);
+
+      agoraManagerRef.current = agoraManager;
+      setAgoraReady(true);
     } catch (error) {
-      console.error('Failed to fetch call details:', error);
+      console.error('Failed to initialize call:', error);
+      alert('Failed to join call. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    // Toggle audio in Agora
+  const cleanup = async () => {
+    if (agoraManagerRef.current) {
+      await agoraManagerRef.current.leave();
+    }
   };
 
-  const toggleVideo = () => {
-    setIsVideoOff(!isVideoOff);
-    // Toggle video in Agora
+  const toggleMute = async () => {
+    if (!agoraManagerRef.current) return;
+    
+    const newMutedState = !isMuted;
+    await agoraManagerRef.current.toggleAudio(newMutedState);
+    setIsMuted(newMutedState);
+    
+    // Update backend
+    try {
+      await apiClient.patch(`/video-calls/${callId}/status`, { is_muted: newMutedState });
+    } catch (error) {
+      console.error('Failed to update mute status:', error);
+    }
+  };
+
+  const toggleVideo = async () => {
+    if (!agoraManagerRef.current) return;
+    
+    const newVideoState = !isVideoOff;
+    await agoraManagerRef.current.toggleVideo(!newVideoState);
+    setIsVideoOff(newVideoState);
+    
+    // Update backend
+    try {
+      await apiClient.patch(`/video-calls/${callId}/status`, { is_video_off: newVideoState });
+    } catch (error) {
+      console.error('Failed to update video status:', error);
+    }
   };
 
   const leaveCall = async () => {
+    await cleanup();
+    
     try {
       await apiClient.post(`/video-calls/${callId}/leave`);
-      router.push('/dashboard/video-calls');
     } catch (error) {
-      console.error('Failed to leave call:', error);
+      console.error('Failed to notify server:', error);
     }
+    
+    router.push('/dashboard/video-calls');
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-xl">Joining call...</div>
+        <div className="text-white text-center">
+          <div className="text-6xl mb-4">🎥</div>
+          <div className="text-xl">Joining call...</div>
+          <div className="text-sm text-gray-400 mt-2">Please allow camera and microphone access</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 p-4 flex justify-between items-center">
+      <div className="bg-gray-800 p-4 flex justify-between items-center flex-shrink-0">
         <div>
           <h1 className="text-lg md:text-xl font-bold">{call?.title}</h1>
           <p className="text-sm text-gray-400">
-            {participants.length} participant{participants.length !== 1 ? 's' : ''}
+            {remoteUsers.length + 1} participant{remoteUsers.length !== 0 ? 's' : ''}
           </p>
         </div>
         <Button variant="destructive" onClick={leaveCall} size="sm">
@@ -96,65 +175,58 @@ export default function CallRoomPage() {
       </div>
 
       {/* Video Grid */}
-      <div className="flex-1 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Local Video */}
           <Card className="relative aspect-video bg-gray-800 overflow-hidden">
-            <div ref={localVideoRef} className="w-full h-full bg-gray-700 flex items-center justify-center">
-              {isVideoOff ? (
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-2xl">{user?.fullName?.[0]}</span>
-                  </div>
-                  <p className="text-sm">You (Video Off)</p>
-                </div>
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <p className="text-sm">📹 Your Video</p>
-                  <p className="text-xs mt-2">(Camera feed will appear here)</p>
+            <div 
+              id="local-video" 
+              className="w-full h-full bg-gray-700 flex items-center justify-center"
+            >
+              {!agoraReady && (
+                <div className="text-center text-gray-400">
+                  <p className="text-sm">Connecting...</p>
                 </div>
               )}
             </div>
-            <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-xs">
+            <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 px-3 py-1 rounded-full text-sm">
               You {isMuted && '🔇'}
             </div>
           </Card>
 
           {/* Remote Videos */}
-          {participants.filter(p => p.user_id !== user?.id).map((participant) => (
-            <Card key={participant.id} className="relative aspect-video bg-gray-800 overflow-hidden">
-              <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-2xl">{participant.user?.full_name?.[0]}</span>
-                  </div>
-                  <p className="text-sm">{participant.user?.full_name}</p>
-                </div>
-              </div>
-              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-xs">
-                {participant.user?.full_name} {participant.is_muted && '🔇'}
+          {remoteUsers.map((remoteUser) => (
+            <Card key={remoteUser.uid} className="relative aspect-video bg-gray-800 overflow-hidden">
+              <div 
+                id={`remote-${remoteUser.uid}`}
+                className="w-full h-full bg-gray-700"
+              />
+              <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 px-3 py-1 rounded-full text-sm">
+                Participant {remoteUser.uid}
               </div>
             </Card>
           ))}
         </div>
 
         {/* Info Banner */}
-        <Card className="p-4 bg-blue-900 border-blue-700">
-          <p className="text-sm text-center">
-            📹 <strong>Video calling is powered by Agora.</strong> Full video/audio functionality will be enabled when you add the Agora SDK.
-            For now, you can schedule calls and see participants.
-          </p>
-        </Card>
+        {!agoraReady && (
+          <Card className="mt-4 p-4 bg-yellow-900 border-yellow-700">
+            <p className="text-sm text-center">
+              ⚠️ <strong>Agora App ID not configured.</strong> Add NEXT_PUBLIC_AGORA_APP_ID to your environment variables to enable video calling.
+            </p>
+          </Card>
+        )}
       </div>
 
       {/* Controls */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-800 p-4">
-        <div className="flex justify-center gap-4">
+      <div className="bg-gray-800 p-4 flex-shrink-0">
+        <div className="flex justify-center items-center gap-3 md:gap-4">
           <Button
             onClick={toggleMute}
             variant={isMuted ? "destructive" : "secondary"}
             size="lg"
-            className="rounded-full w-14 h-14"
+            className="rounded-full w-12 h-12 md:w-14 md:h-14"
+            title={isMuted ? "Unmute" : "Mute"}
           >
             {isMuted ? '🔇' : '🎤'}
           </Button>
@@ -163,7 +235,8 @@ export default function CallRoomPage() {
             onClick={toggleVideo}
             variant={isVideoOff ? "destructive" : "secondary"}
             size="lg"
-            className="rounded-full w-14 h-14"
+            className="rounded-full w-12 h-12 md:w-14 md:h-14"
+            title={isVideoOff ? "Turn on camera" : "Turn off camera"}
           >
             {isVideoOff ? '📹' : '📷'}
           </Button>
@@ -172,7 +245,7 @@ export default function CallRoomPage() {
             onClick={leaveCall}
             variant="destructive"
             size="lg"
-            className="px-8"
+            className="px-6 md:px-8 h-12 md:h-14"
           >
             End Call
           </Button>
