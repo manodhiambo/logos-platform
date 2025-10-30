@@ -18,7 +18,7 @@ export class AIService {
         userId: userId,
         title: title.substring(0, 100),
         conversationContext: {},
-        poeConversationId: null,
+        poeConversationId: undefined,
         isArchived: false,
       });
 
