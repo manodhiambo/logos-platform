@@ -28,7 +28,7 @@ class CommentService {
     });
 
     // Increment post comments count
-    await post.increment('commentsCount', { by: 1 });
+    await post.increment('commentCount', { by: 1 });
 
     // Fetch comment with author details
     const createdComment = await Comment.findByPk(comment.id, {
@@ -156,7 +156,7 @@ class CommentService {
     // Decrement post comments count
     const post = await Post.findByPk(comment.postId);
     if (post) {
-      await post.decrement('commentsCount', { by: 1 });
+      await post.decrement('commentCount', { by: 1 });
     }
 
     return { message: 'Comment deleted successfully' };
