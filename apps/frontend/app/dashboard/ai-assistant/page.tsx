@@ -10,13 +10,13 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  created_at: string;
+  createdAt?: string;
 }
 
 interface Conversation {
   id: string;
   title: string;
-  updated_at: string;
+  updatedAt: string;
 }
 
 export default function AIAssistantPage() {
@@ -43,8 +43,8 @@ export default function AIAssistantPage() {
 
   const fetchConversations = async () => {
     try {
-      const response = await apiClient.get('/ai-assistant/conversations');
-      setConversations(response.data.data.conversations || []);
+      const response = await apiClient.get('/ai/conversations?page=1&limit=20');
+      setConversations(response.data.data?.conversations || []);
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
     }
@@ -52,8 +52,8 @@ export default function AIAssistantPage() {
 
   const fetchMessages = async (conversationId: string) => {
     try {
-      const response = await apiClient.get(`/ai-assistant/conversations/${conversationId}/messages`);
-      setMessages(response.data.data.messages || []);
+      const response = await apiClient.get(`/ai/conversations/${conversationId}/messages?page=1&limit=50`);
+      setMessages(response.data.data?.messages || []);
     } catch (error) {
       console.error('Failed to fetch messages:', error);
     }
@@ -61,16 +61,26 @@ export default function AIAssistantPage() {
 
   const createNewConversation = async (firstMessage: string) => {
     try {
-      const response = await apiClient.post('/ai-assistant/conversations', {
-        title: 'New Conversation',
+      const response = await apiClient.post('/ai/conversations', {
+        title: firstMessage.substring(0, 50) || 'New Conversation',
         initialMessage: firstMessage,
       });
       const newConv = response.data.data.conversation;
       setCurrentConversation(newConv.id);
+      
+      // Add messages from response
+      if (response.data.data.firstMessage) {
+        setMessages([
+          { id: Date.now().toString(), role: 'user', content: firstMessage },
+          response.data.data.firstMessage
+        ]);
+      }
+      
       fetchConversations();
       return newConv.id;
     } catch (error) {
       console.error('Failed to create conversation:', error);
+      alert('Failed to start conversation. Please try again.');
       return null;
     }
   };
@@ -82,6 +92,13 @@ export default function AIAssistantPage() {
     setInput('');
     setLoading(true);
 
+    // Optimistically add user message
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role: 'user',
+      content: userMessage
+    }]);
+
     try {
       let convId = currentConversation;
       
@@ -92,14 +109,18 @@ export default function AIAssistantPage() {
           return;
         }
       } else {
-        await apiClient.post(`/ai-assistant/conversations/${convId}/messages`, {
+        const response = await apiClient.post(`/ai/conversations/${convId}/messages`, {
           content: userMessage,
         });
+        
+        // Add assistant message
+        if (response.data.data.assistantMessage) {
+          setMessages(prev => [...prev, response.data.data.assistantMessage]);
+        }
       }
-
-      fetchMessages(convId);
     } catch (error) {
       console.error('Failed to send message:', error);
+      alert('Failed to send message. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -108,7 +129,7 @@ export default function AIAssistantPage() {
   return (
     <div className="h-[calc(100vh-12rem)] flex gap-4">
       {/* Conversations sidebar */}
-      <Card className="w-64 p-4 overflow-y-auto">
+      <Card className="w-64 p-4 overflow-y-auto hidden md:block">
         <Button
           onClick={() => {
             setCurrentConversation(null);
@@ -131,7 +152,7 @@ export default function AIAssistantPage() {
             >
               <div className="font-semibold truncate">{conv.title}</div>
               <div className="text-xs text-gray-500">
-                {new Date(conv.updated_at).toLocaleDateString()}
+                {new Date(conv.updatedAt).toLocaleDateString()}
               </div>
             </button>
           ))}
@@ -149,12 +170,51 @@ export default function AIAssistantPage() {
           {messages.length === 0 ? (
             <div className="text-center text-gray-500 mt-8">
               <p className="text-4xl mb-4">💬</p>
-              <p>Start a conversation with LOGOS AI</p>
+              <p className="text-lg mb-2">Welcome to LOGOS AI!</p>
+              <p className="text-sm">Start a conversation by asking a question about:</p>
+              <div className="mt-4 grid grid-cols-2 gap-2 max-w-md mx-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setInput('What does the Bible say about love?');
+                  }}
+                >
+                  📖 Bible Questions
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setInput('How can I grow in my faith?');
+                  }}
+                >
+                  ✝️ Faith & Growth
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setInput('What is salvation?');
+                  }}
+                >
+                  🙏 Theology
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setInput('How should I pray?');
+                  }}
+                >
+                  💭 Prayer
+                </Button>
+              </div>
             </div>
           ) : (
-            messages.map((message) => (
+            messages.map((message, idx) => (
               <div
-                key={message.id}
+                key={message.id || idx}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
@@ -169,6 +229,17 @@ export default function AIAssistantPage() {
               </div>
             ))
           )}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-gray-100 p-4 rounded-lg">
+                <div className="flex gap-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -180,6 +251,7 @@ export default function AIAssistantPage() {
               onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
               placeholder="Type your message..."
               disabled={loading}
+              className="flex-1"
             />
             <Button onClick={sendMessage} disabled={loading || !input.trim()}>
               {loading ? '...' : 'Send'}
