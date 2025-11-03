@@ -108,3 +108,13 @@ console.log('🚀 Starting server...');
 startServer();
 
 export default app;
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'LOGOS Backend is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
