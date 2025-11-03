@@ -8,7 +8,6 @@ interface PostAttributes {
   communityId?: string;
   content: string;
   mediaUrls: any[];
-  attachments?: any[];
   postType: string;
   isPinned: boolean;
   likeCount: number;
@@ -29,7 +28,6 @@ class Post extends Model<PostAttributes, PostCreationAttributes> implements Post
   public communityId?: string;
   public content!: string;
   public mediaUrls!: any[];
-  public attachments!: any[];
   public postType!: string;
   public isPinned!: boolean;
   public likeCount!: number;
@@ -71,11 +69,6 @@ Post.init(
       type: DataTypes.JSONB,
       defaultValue: [],
       field: 'media_urls',
-    },
-    attachments: {
-      type: DataTypes.JSONB,
-      allowNull: true,
-      defaultValue: [],
     },
     postType: {
       type: DataTypes.STRING(20),
