@@ -1,5 +1,5 @@
 import Post from '../models/Post.model';
-import User from '../../auth/models/User.model';
+import User from '../../../database/models/user.model';
 import Community from '../../community/models/Community.model';
 import { Op } from 'sequelize';
 
