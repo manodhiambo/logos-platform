@@ -5,15 +5,7 @@ import {
   createPrayerRequestValidation,
   updatePrayerStatusValidation,
 } from '../validators/prayer.validator';
-import {
-  createPrayerRequest,
-  getPrayerRequests,
-  getPrayerRequestById,
-  updatePrayerStatus,
-  deletePrayerRequest,
-  prayForRequest,
-  getUserPrayers,
-} from '../controllers/prayer.controller';
+import prayerController from '../controllers/prayer.controller';
 
 const router = Router();
 
@@ -21,16 +13,16 @@ const router = Router();
 router.use(authenticate);
 
 // Prayer request routes
-router.post('/requests', createPrayerRequestValidation, validate, createPrayerRequest);
-router.get('/requests', getPrayerRequests);
-router.get('/requests/:requestId', getPrayerRequestById);
-router.put('/requests/:requestId/status', updatePrayerStatusValidation, validate, updatePrayerStatus);
-router.delete('/requests/:requestId', deletePrayerRequest);
+router.post('/requests', createPrayerRequestValidation, validate, prayerController.createPrayerRequest);
+router.get('/requests', prayerController.getPrayerRequests);
+router.get('/requests/:requestId', prayerController.getPrayerRequestById);
+router.put('/requests/:requestId/status', updatePrayerStatusValidation, validate, prayerController.updatePrayerStatus);
+router.delete('/requests/:requestId', prayerController.deletePrayerRequest);
 
 // Prayer actions
-router.post('/requests/:requestId/pray', prayForRequest);
+router.post('/requests/:requestId/pray', prayerController.prayForRequest);
 
 // User's prayers
-router.get('/my-prayers', getUserPrayers);
+router.get('/my-prayers', prayerController.getUserPrayers);
 
 export default router;
