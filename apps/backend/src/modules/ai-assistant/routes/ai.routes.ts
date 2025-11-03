@@ -3,8 +3,8 @@ import { authenticate } from '../../../shared/middlewares/auth.middleware';
 import {
   createConversation,
   sendMessage,
-  getUserConversations,
-  getConversationMessages,
+  getConversations,
+  getMessages,
   deleteConversation,
   quickAsk,
 } from '../controllers/ai.controller';
@@ -16,8 +16,8 @@ router.use(authenticate);
 
 // Conversation management
 router.post('/conversations', createConversation);
-router.get('/conversations', getUserConversations);
-router.get('/conversations/:conversationId/messages', getConversationMessages);
+router.get('/conversations', getConversations);
+router.get('/conversations/:conversationId/messages', getMessages);
 router.post('/conversations/:conversationId/messages', sendMessage);
 router.delete('/conversations/:conversationId', deleteConversation);
 
