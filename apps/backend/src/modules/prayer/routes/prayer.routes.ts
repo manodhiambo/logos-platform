@@ -1,130 +1,36 @@
 import { Router } from 'express';
-import prayerController from '../controllers/prayer.controller';
-import { authenticate, optionalAuth } from '../../../shared/middlewares/auth.middleware';
+import { authenticate } from '../../../shared/middlewares/auth.middleware';
 import { validate } from '../../../shared/middlewares/validation.middleware';
 import {
-  createPrayerRequestValidator,
-  updatePrayerRequestValidator,
-  requestIdValidator,
-  getPrayerRequestsValidator,
-  prayForRequestValidator,
-  updateStatusValidator,
+  createPrayerRequestValidation,
+  updatePrayerStatusValidation,
 } from '../validators/prayer.validator';
+import {
+  createPrayerRequest,
+  getPrayerRequests,
+  getPrayerRequestById,
+  updatePrayerStatus,
+  deletePrayerRequest,
+  prayForRequest,
+  getUserPrayers,
+} from '../controllers/prayer.controller';
 
 const router = Router();
 
-/**
- * @route   POST /api/v1/prayers/requests
- * @desc    Create a prayer request
- * @access  Private
- */
-router.post(
-  '/requests',
-  authenticate,
-  createPrayerRequestValidator,
-  validate,
-  prayerController.createPrayerRequest
-);
+// All routes require authentication
+router.use(authenticate);
 
-/**
- * @route   GET /api/v1/prayers/requests
- * @desc    Get prayer requests
- * @access  Public (but filtered by privacy)
- */
-router.get(
-  '/requests',
-  optionalAuth,
-  getPrayerRequestsValidator,
-  validate,
-  prayerController.getPrayerRequests
-);
+// Prayer request routes
+router.post('/requests', createPrayerRequestValidation, validate, createPrayerRequest);
+router.get('/requests', getPrayerRequests);
+router.get('/requests/:requestId', getPrayerRequestById);
+router.put('/requests/:requestId/status', updatePrayerStatusValidation, validate, updatePrayerStatus);
+router.delete('/requests/:requestId', deletePrayerRequest);
 
-/**
- * @route   GET /api/v1/prayers/my-requests
- * @desc    Get user's own prayer requests
- * @access  Private
- */
-router.get(
-  '/my-requests',
-  authenticate,
-  prayerController.getMyPrayerRequests
-);
+// Prayer actions
+router.post('/requests/:requestId/pray', prayForRequest);
 
-/**
- * @route   GET /api/v1/prayers/requests/:requestId
- * @desc    Get prayer request by ID
- * @access  Public (but filtered by privacy)
- */
-router.get(
-  '/requests/:requestId',
-  optionalAuth,
-  requestIdValidator,
-  validate,
-  prayerController.getPrayerRequestById
-);
-
-/**
- * @route   PUT /api/v1/prayers/requests/:requestId
- * @desc    Update prayer request
- * @access  Private (owner only)
- */
-router.put(
-  '/requests/:requestId',
-  authenticate,
-  updatePrayerRequestValidator,
-  validate,
-  prayerController.updatePrayerRequest
-);
-
-/**
- * @route   DELETE /api/v1/prayers/requests/:requestId
- * @desc    Delete prayer request
- * @access  Private (owner only)
- */
-router.delete(
-  '/requests/:requestId',
-  authenticate,
-  requestIdValidator,
-  validate,
-  prayerController.deletePrayerRequest
-);
-
-/**
- * @route   POST /api/v1/prayers/requests/:requestId/pray
- * @desc    Pray for a request
- * @access  Private
- */
-router.post(
-  '/requests/:requestId/pray',
-  authenticate,
-  prayForRequestValidator,
-  validate,
-  prayerController.prayForRequest
-);
-
-/**
- * @route   GET /api/v1/prayers/requests/:requestId/prayers
- * @desc    Get prayers for a request
- * @access  Public
- */
-router.get(
-  '/requests/:requestId/prayers',
-  requestIdValidator,
-  validate,
-  prayerController.getPrayers
-);
-
-/**
- * @route   PUT /api/v1/prayers/requests/:requestId/status
- * @desc    Update prayer request status
- * @access  Private (owner only)
- */
-router.put(
-  '/requests/:requestId/status',
-  authenticate,
-  updateStatusValidator,
-  validate,
-  prayerController.updateStatus
-);
+// User's prayers
+router.get('/my-prayers', getUserPrayers);
 
 export default router;
