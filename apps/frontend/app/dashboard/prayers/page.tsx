@@ -12,11 +12,14 @@ interface PrayerRequest {
   description: string;
   category: string;
   status: string;
-  prayer_count: number;
-  user: {
-    full_name: string;
+  prayerCount: number;
+  author: {
+    id: string;
+    fullName: string;
+    username: string;
   };
-  created_at: string;
+  createdAt: string;
+  hasPrayed: boolean;
 }
 
 export default function PrayersPage() {
@@ -29,8 +32,8 @@ export default function PrayersPage() {
 
   const fetchPrayers = async () => {
     try {
-      const response = await apiClient.get('/prayers/requests');
-      setPrayers(response.data.data.prayerRequests || []);
+      const response = await apiClient.get('/prayers/requests?page=1&limit=20');
+      setPrayers(response.data.data?.prayerRequests || []);
     } catch (error) {
       console.error('Failed to fetch prayers:', error);
     } finally {
@@ -40,32 +43,47 @@ export default function PrayersPage() {
 
   const prayForRequest = async (prayerId: string) => {
     try {
-      await apiClient.post(`/prayers/requests/${prayerId}/pray`);
+      await apiClient.post(`/prayers/requests/${prayerId}/pray`, {
+        message: 'Praying for you in Jesus name'
+      });
+      alert('Prayer recorded! 🙏');
       fetchPrayers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to pray:', error);
+      alert(error.response?.data?.error?.message || 'Failed to record prayer');
     }
   };
 
   if (loading) {
-    return <div>Loading prayers...</div>;
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading prayers...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">🙏 Prayer Wall</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">🙏 Prayer Wall</h1>
           <p className="text-gray-600 mt-1">Lift each other up in prayer</p>
         </div>
         <Link href="/dashboard/prayers/new">
-          <Button>+ New Request</Button>
+          <Button className="w-full sm:w-auto">+ New Request</Button>
         </Link>
       </div>
 
       {prayers.length === 0 ? (
         <Card className="p-8 text-center">
+          <div className="text-6xl mb-4">🙏</div>
           <p className="text-gray-500 mb-4">No prayer requests yet</p>
+          <p className="text-sm text-gray-400 mb-6">
+            Be the first to share your prayer needs with the community
+          </p>
           <Link href="/dashboard/prayers/new">
             <Button>Submit First Request</Button>
           </Link>
@@ -73,27 +91,32 @@ export default function PrayersPage() {
       ) : (
         <div className="space-y-4">
           {prayers.map((prayer) => (
-            <Card key={prayer.id} className="p-6">
-              <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-lg font-bold">{prayer.title}</h3>
+            <Card key={prayer.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold mb-1">{prayer.title}</h3>
                   <p className="text-sm text-gray-500">
-                    by {prayer.user.full_name} • {new Date(prayer.created_at).toLocaleDateString()}
+                    by {prayer.author?.fullName || prayer.author?.username || 'Anonymous'} • {new Date(prayer.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   {prayer.category}
                 </span>
               </div>
 
-              <p className="text-gray-700 mb-4">{prayer.description}</p>
+              <p className="text-gray-700 mb-4 leading-relaxed">{prayer.description}</p>
 
-              <div className="flex items-center gap-4">
-                <Button onClick={() => prayForRequest(prayer.id)} size="sm">
-                  🙏 Pray ({prayer.prayer_count})
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t">
+                <Button 
+                  onClick={() => prayForRequest(prayer.id)} 
+                  size="sm"
+                  variant={prayer.hasPrayed ? "outline" : "default"}
+                  disabled={prayer.hasPrayed}
+                >
+                  {prayer.hasPrayed ? '✓ Prayed' : '🙏 Pray'} ({prayer.prayerCount})
                 </Button>
                 <span className="text-sm text-gray-500">
-                  Status: {prayer.status}
+                  Status: <span className="font-medium text-gray-700">{prayer.status}</span>
                 </span>
               </div>
             </Card>
