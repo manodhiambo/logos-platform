@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import postService from '../services/post.service';
+import postLikeService from '../services/post-like.service';
+import postCommentService from '../services/post-comment.service';
 
 export const createPost = async (req: Request, res: Response) => {
   try {
@@ -22,6 +24,7 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const getPosts = async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user?.id;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     
@@ -31,6 +34,13 @@ export const getPosts = async (req: Request, res: Response) => {
     if (req.query.postType) filters.postType = req.query.postType;
     
     const result = await postService.getPosts(filters, page, limit);
+    
+    // Check if user has liked each post
+    if (userId) {
+      for (const post of result.posts) {
+        post.dataValues.isLiked = await postLikeService.hasUserLiked(post.id, userId);
+      }
+    }
     
     return res.status(200).json({
       success: true,
@@ -118,22 +128,17 @@ export const likePost = async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { postId } = req.params;
     
-    // Simple like implementation - just increment counter
-    const post = await postService.getPostById(postId);
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        error: { message: 'Post not found' }
-      });
-    }
+    const result = await postLikeService.toggleLike(postId, userId);
     
-    // You can implement proper like tracking later
+    // Get updated post
+    const post = await postService.getPostById(postId);
+    
     return res.status(200).json({
       success: true,
-      message: 'Post liked successfully',
+      message: `Post ${result.action} successfully`,
       data: { 
-        likesCount: post.likeCount + 1,
-        isLiked: true 
+        ...result,
+        likeCount: post?.likeCount || 0
       }
     });
   } catch (error: any) {
@@ -149,28 +154,49 @@ export const addComment = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { postId } = req.params;
-    const { content } = req.body;
+    const { content, parentCommentId } = req.body;
     
-    // Implement comment logic here
-    // For now, return success
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Comment content is required' }
+      });
+    }
+    
+    const comment = await postCommentService.addComment(postId, userId, content, parentCommentId);
+    
     return res.status(201).json({
       success: true,
       message: 'Comment added successfully',
-      data: {
-        comment: {
-          id: Date.now().toString(),
-          postId,
-          userId,
-          content,
-          createdAt: new Date().toISOString()
-        }
-      }
+      data: { comment }
     });
   } catch (error: any) {
     console.error('Add comment error:', error);
     return res.status(500).json({
       success: false,
       error: { message: error.message || 'Failed to add comment' }
+    });
+  }
+};
+
+export const getComments = async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    
+    const result = await postCommentService.getPostComments(postId, page, limit);
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Comments retrieved successfully',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Get comments error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: error.message || 'Failed to get comments' }
     });
   }
 };

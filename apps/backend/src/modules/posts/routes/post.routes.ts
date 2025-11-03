@@ -7,6 +7,7 @@ import {
   deletePost,
   likePost,
   addComment,
+  getComments,
 } from '../controllers/post.controller';
 import { authenticate } from '../../../shared/middlewares/auth.middleware';
 
@@ -25,5 +26,6 @@ router.delete('/:postId', deletePost);
 // Post interactions
 router.post('/:postId/like', likePost);
 router.post('/:postId/comments', addComment);
+router.get('/:postId/comments', getComments);
 
 export default router;
