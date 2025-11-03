@@ -15,14 +15,16 @@ router.use(authenticate);
 // Prayer request routes
 router.post('/requests', createPrayerRequestValidation, validate, prayerController.createPrayerRequest);
 router.get('/requests', prayerController.getPrayerRequests);
+router.get('/requests/me', prayerController.getMyPrayerRequests);
 router.get('/requests/:requestId', prayerController.getPrayerRequestById);
-router.put('/requests/:requestId/status', updatePrayerStatusValidation, validate, prayerController.updatePrayerStatus);
+router.put('/requests/:requestId', prayerController.updatePrayerRequest);
+router.put('/requests/:requestId/status', updatePrayerStatusValidation, validate, prayerController.updateStatus);
 router.delete('/requests/:requestId', prayerController.deletePrayerRequest);
 
 // Prayer actions
 router.post('/requests/:requestId/pray', prayerController.prayForRequest);
 
-// User's prayers
-router.get('/my-prayers', prayerController.getUserPrayers);
+// User's prayers (prayers they've prayed for others)
+router.get('/my-prayers', prayerController.getPrayers);
 
 export default router;
