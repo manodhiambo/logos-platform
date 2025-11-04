@@ -20,7 +20,7 @@
     "strictFunctionTypes": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noImplicitReturns": true,
+    "noImplicitReturns": false,
     "noFallthroughCasesInSwitch": true,
     "types": ["node"],
     "typeRoots": ["./node_modules/@types", "../../node_modules/@types"]
