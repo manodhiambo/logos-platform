@@ -16,7 +16,6 @@ export default function CallRoomPage() {
   const { user } = useAuth();
   
   const callId = params.callId as string;
-  const agoraToken = searchParams.get('token');
   
   const [call, setCall] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
@@ -25,44 +24,39 @@ export default function CallRoomPage() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [loading, setLoading] = useState(true);
   const [agoraReady, setAgoraReady] = useState(false);
+  const [agoraData, setAgoraData] = useState<any>(null);
   
   const agoraManagerRef = useRef<AgoraManager | null>(null);
 
   useEffect(() => {
-    if (!agoraToken) {
-      alert('Invalid call link');
-      router.push('/dashboard/video-calls');
-      return;
-    }
-    
     initializeCall();
     
     return () => {
       cleanup();
     };
-  }, [callId, agoraToken]);
+  }, [callId]);
 
   const initializeCall = async () => {
     try {
-      // Fetch call details
-      const response = await apiClient.get(`/video-calls/${callId}`);
-      const callData = response.data.data.call;
+      // Join the call - backend will return Agora token
+      const response = await apiClient.post(`/video-calls/${callId}/join`);
+      const { call: callData, token, channelName, uid, appId } = response.data.data;
+      
       setCall(callData);
-      setParticipants(response.data.data.participants || []);
+      setAgoraData({ token, channelName, uid, appId });
 
-      // Initialize Agora
-      const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
-      if (!appId) {
-        console.warn('Agora App ID not configured');
+      if (!appId || !token) {
+        console.warn('Agora credentials missing');
         setLoading(false);
         return;
       }
 
+      // Initialize Agora
       const agoraManager = new AgoraManager({
         appId: appId,
-        channel: callData.channel_name,
-        token: agoraToken || '',
-        uid: user?.id || Math.floor(Math.random() * 100000),
+        channel: channelName,
+        token: token,
+        uid: uid,
       });
 
       // Setup callbacks
@@ -70,7 +64,6 @@ export default function CallRoomPage() {
         console.log('Remote user joined:', remoteUser.uid);
         setRemoteUsers(prev => [...prev, remoteUser]);
         
-        // Play remote video after a short delay
         setTimeout(() => {
           agoraManager.playRemoteVideo(remoteUser, `remote-${remoteUser.uid}`);
         }, 100);
@@ -82,7 +75,7 @@ export default function CallRoomPage() {
       };
 
       // Join the call
-      const tracks = await agoraManager.join();
+      await agoraManager.join();
       
       // Play local video
       setTimeout(() => {
@@ -91,9 +84,10 @@ export default function CallRoomPage() {
 
       agoraManagerRef.current = agoraManager;
       setAgoraReady(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize call:', error);
-      alert('Failed to join call. Please try again.');
+      alert(error.response?.data?.error?.message || 'Failed to join call');
+      router.push('/dashboard/video-calls');
     } finally {
       setLoading(false);
     }
@@ -112,9 +106,10 @@ export default function CallRoomPage() {
     await agoraManagerRef.current.toggleAudio(newMutedState);
     setIsMuted(newMutedState);
     
-    // Update backend
     try {
-      await apiClient.patch(`/video-calls/${callId}/status`, { is_muted: newMutedState });
+      await apiClient.put(`/video-calls/${callId}/participant`, { 
+        isMuted: newMutedState 
+      });
     } catch (error) {
       console.error('Failed to update mute status:', error);
     }
@@ -127,9 +122,10 @@ export default function CallRoomPage() {
     await agoraManagerRef.current.toggleVideo(!newVideoState);
     setIsVideoOff(newVideoState);
     
-    // Update backend
     try {
-      await apiClient.patch(`/video-calls/${callId}/status`, { is_video_off: newVideoState });
+      await apiClient.put(`/video-calls/${callId}/participant`, { 
+        isVideoOff: newVideoState 
+      });
     } catch (error) {
       console.error('Failed to update video status:', error);
     }
@@ -208,11 +204,11 @@ export default function CallRoomPage() {
           ))}
         </div>
 
-        {/* Info Banner */}
-        {!agoraReady && (
-          <Card className="mt-4 p-4 bg-yellow-900 border-yellow-700">
+        {/* Success Banner */}
+        {agoraReady && (
+          <Card className="mt-4 p-4 bg-green-900 border-green-700">
             <p className="text-sm text-center">
-              ⚠️ <strong>Agora App ID not configured.</strong> Add NEXT_PUBLIC_AGORA_APP_ID to your environment variables to enable video calling.
+              ✅ <strong>Video calling is active!</strong> You can now see and hear other participants.
             </p>
           </Card>
         )}
