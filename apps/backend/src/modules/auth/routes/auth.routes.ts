@@ -2,7 +2,6 @@ import { Router } from 'express';
 import authController from '../controllers/auth.controller';
 import { authenticate } from '../../../shared/middlewares/auth.middleware';
 import { validateRequest } from '../../../shared/middlewares/joi-validation.middleware';
-import { uploadAvatar } from '../../../shared/config/upload.config';
 import {
   registerSchema,
   loginSchema,
@@ -72,7 +71,7 @@ router.put('/me', authenticate, authController.updateProfile);
  * @desc    Upload user avatar
  * @access  Private
  */
-router.post('/me/avatar', authenticate, uploadAvatar.single('avatar'), authController.uploadAvatar);
+router.post('/me/avatar', authenticate, authController.uploadAvatar);
 
 /**
  * @route   PUT /api/v1/auth/me/password

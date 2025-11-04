@@ -2,16 +2,47 @@ import { Request, Response, NextFunction } from 'express';
 import User from '../../../database/models/user.model';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
 import { successResponse } from '../../../shared/utils/response.util';
 import { logger } from '../../../shared/utils/logger.util';
 
+// Multer configuration for avatar upload
+const uploadDir = path.join(__dirname, '../../../uploads/avatars');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  },
+});
+
 class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
-    // Existing register method - keep as is
     try {
       const { email, username, password, fullName } = req.body;
       
-      // Check if user exists
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
         return res.status(400).json({
@@ -53,11 +84,8 @@ class AuthController {
   }
 
   async login(req: Request, res: Response, next: NextFunction) {
-    // Existing login method - keep as is
     try {
       const { email, password } = req.body;
-
-      logger.info(`Login attempt for: ${email}`);
 
       const user = await User.findOne({ where: { email } });
       
@@ -67,8 +95,6 @@ class AuthController {
           error: { message: 'Invalid credentials' }
         });
       }
-
-      logger.info(`User found: ${email}, checking password...`);
       
       const isMatch = await bcrypt.compare(password, user.passwordHash);
       
@@ -78,8 +104,6 @@ class AuthController {
           error: { message: 'Invalid credentials' }
         });
       }
-
-      logger.info(`User logged in: ${email}`);
 
       const token = jwt.sign(
         { userId: user.id },
@@ -190,36 +214,45 @@ class AuthController {
     }
   }
 
-  async uploadAvatar(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = (req as any).user.id;
-      
-      if (!req.file) {
+  uploadAvatar(req: Request, res: Response, next: NextFunction) {
+    upload.single('avatar')(req, res, async (err) => {
+      if (err) {
         return res.status(400).json({
           success: false,
-          error: { message: 'No file uploaded' }
+          error: { message: err.message || 'File upload failed' }
         });
       }
 
-      const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
-      const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
-      
-      const user = await User.findByPk(userId);
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          error: { message: 'User not found' }
+      try {
+        const userId = (req as any).user.id;
+        
+        if (!req.file) {
+          return res.status(400).json({
+            success: false,
+            error: { message: 'No file uploaded' }
+          });
+        }
+
+        const baseUrl = process.env.API_URL || `${req.protocol}://${req.get('host')}`;
+        const avatarUrl = `${baseUrl}/uploads/avatars/${req.file.filename}`;
+        
+        const user = await User.findByPk(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: { message: 'User not found' }
+          });
+        }
+
+        await user.update({ avatarUrl });
+
+        return successResponse(res, 'Avatar uploaded successfully', {
+          avatarUrl: user.avatarUrl
         });
+      } catch (error) {
+        next(error);
       }
-
-      await user.update({ avatarUrl });
-
-      return successResponse(res, 'Avatar uploaded successfully', {
-        avatarUrl: user.avatarUrl
-      });
-    } catch (error) {
-      next(error);
-    }
+    });
   }
 
   async updatePassword(req: Request, res: Response, next: NextFunction) {
