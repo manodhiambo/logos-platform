@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.fullName || '',
     bio: user?.bio || '',
@@ -21,37 +22,79 @@ export default function ProfilePage() {
     preferredBibleTranslation: user?.preferredBibleTranslation || 'NKJV',
   });
 
+  useEffect(() => {
+    setFormData({
+      fullName: user?.fullName || '',
+      bio: user?.bio || '',
+      denomination: user?.denomination || '',
+      spiritualJourneyStage: user?.spiritualJourneyStage || '',
+      country: user?.country || '',
+      timezone: user?.timezone || '',
+      preferredBibleTranslation: user?.preferredBibleTranslation || 'NKJV',
+    });
+  }, [user]);
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file size
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      alert('Only JPEG, PNG, GIF, and WebP images are allowed');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('avatar', file);
 
     setUploading(true);
     try {
-      await apiClient.put('/users/me/avatar', formData, {
+      const response = await apiClient.post('/auth/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert('Avatar updated successfully!');
+      
+      alert('Avatar updated successfully! 📸');
+      
+      // Update user context
+      if (setUser && user) {
+        setUser({
+          ...user,
+          avatarUrl: response.data.data.avatarUrl
+        });
+      }
+      
       window.location.reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to upload avatar:', error);
-      alert('Avatar upload coming soon!');
+      alert(error.response?.data?.error?.message || 'Failed to upload avatar');
     } finally {
       setUploading(false);
     }
   };
 
   const handleSave = async () => {
+    setSaving(true);
     try {
-      await apiClient.put('/users/me', formData);
-      alert('Profile updated successfully!');
+      const response = await apiClient.put('/auth/me', formData);
+      alert('Profile updated successfully! ✅');
+      
+      // Update user context
+      if (setUser) {
+        setUser(response.data.data.user);
+      }
+      
       setEditing(false);
-      window.location.reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update profile:', error);
-      alert('Failed to update profile');
+      alert(error.response?.data?.error?.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -62,14 +105,14 @@ export default function ProfilePage() {
       <Card className="p-4 md:p-6">
         <div className="flex flex-col sm:flex-row items-center gap-4 md:gap-6 mb-6">
           <div className="relative">
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl md:text-4xl font-bold">
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center text-3xl md:text-4xl font-bold overflow-hidden">
               {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full rounded-full object-cover" />
+                <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
               ) : (
                 user?.fullName?.[0].toUpperCase()
               )}
             </div>
-            <label className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-lg cursor-pointer hover:bg-gray-100">
+            <label className={`absolute bottom-0 right-0 bg-white rounded-full p-2 shadow-lg cursor-pointer hover:bg-gray-100 transition ${uploading ? 'opacity-50' : ''}`}>
               <input
                 type="file"
                 accept="image/*"
@@ -77,14 +120,14 @@ export default function ProfilePage() {
                 className="hidden"
                 disabled={uploading}
               />
-              <span className="text-xl">📷</span>
+              <span className="text-lg">{uploading ? '⏳' : '📷'}</span>
             </label>
           </div>
           <div className="text-center sm:text-left flex-1">
             <h2 className="text-xl md:text-2xl font-bold">{user?.fullName}</h2>
             <p className="text-sm md:text-base text-gray-600">@{user?.username}</p>
             <p className="text-xs md:text-sm text-gray-500 mt-1">{user?.email}</p>
-            <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+            <span className="inline-block mt-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
               {user?.role}
             </span>
           </div>
@@ -189,7 +232,9 @@ export default function ProfilePage() {
         <div className="flex flex-col sm:flex-row gap-3 mt-6">
           {editing ? (
             <>
-              <Button onClick={handleSave} className="flex-1">💾 Save Changes</Button>
+              <Button onClick={handleSave} className="flex-1" disabled={saving}>
+                {saving ? '💾 Saving...' : '💾 Save Changes'}
+              </Button>
               <Button 
                 onClick={() => {
                   setEditing(false);
@@ -205,6 +250,7 @@ export default function ProfilePage() {
                 }} 
                 variant="outline" 
                 className="flex-1"
+                disabled={saving}
               >
                 ❌ Cancel
               </Button>
@@ -221,16 +267,16 @@ export default function ProfilePage() {
       <Card className="p-4 md:p-6">
         <h2 className="text-lg md:text-xl font-semibold mb-4">⚙️ Settings</h2>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Email Notifications</span>
+          <div className="flex items-center justify-between py-2 border-b">
+            <span className="text-sm font-medium">Email Notifications</span>
             <input type="checkbox" className="w-5 h-5" />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Prayer Reminders</span>
+          <div className="flex items-center justify-between py-2 border-b">
+            <span className="text-sm font-medium">Prayer Reminders</span>
             <input type="checkbox" className="w-5 h-5" defaultChecked />
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Devotional Reminders</span>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm font-medium">Devotional Reminders</span>
             <input type="checkbox" className="w-5 h-5" defaultChecked />
           </div>
         </div>
