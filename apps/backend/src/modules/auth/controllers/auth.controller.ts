@@ -1,137 +1,89 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import authService from '../services/auth.service';
-import { successResponse } from '../../../shared/utils/response.util';
 
-class AuthController {
-  /**
-   * Register a new user
-   */
-  async register(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.register(req.body);
+export const updateProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await authService.updateProfile(userId, req.body);
 
-      return successResponse(
-        res,
-        'Registration successful. Your account is ready to use!',
-        result,
-        201
-      );
-    } catch (error: any) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: { user }
+    });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: error.message || 'Failed to update profile' }
+    });
   }
+};
 
-  /**
-   * Login user
-   */
-  async login(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { emailOrUsername, password } = req.body;
-      const result = await authService.login(emailOrUsername, password);
+export const updatePassword = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { currentPassword, newPassword } = req.body;
 
-      return successResponse(res, 'Login successful', result);
-    } catch (error: any) {
-      next(error);
-    }
+    await authService.updatePassword(userId, currentPassword, newPassword);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error: any) {
+    console.error('Update password error:', error);
+    return res.status(400).json({
+      success: false,
+      error: { message: error.message || 'Failed to update password' }
+    });
   }
+};
 
-  /**
-   * Logout user
-   */
-  async logout(req: Request, res: Response, next: NextFunction) {
-    try {
-      return successResponse(res, 'Logout successful');
-    } catch (error: any) {
-      next(error);
+export const uploadAvatar = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'No file uploaded' }
+      });
     }
+
+    // Construct avatar URL
+    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
+    
+    const result = await authService.updateAvatar(userId, avatarUrl);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Avatar uploaded successfully',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Upload avatar error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: error.message || 'Failed to upload avatar' }
+    });
   }
+};
 
-  /**
-   * Refresh access token
-   */
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { refreshToken } = req.body;
-      const result = await authService.refreshToken(refreshToken);
+export const getProfile = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const user = await authService.getProfile(userId);
 
-      return successResponse(res, 'Token refreshed successfully', result);
-    } catch (error: any) {
-      next(error);
-    }
+    return res.status(200).json({
+      success: true,
+      data: { user }
+    });
+  } catch (error: any) {
+    console.error('Get profile error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { message: error.message || 'Failed to get profile' }
+    });
   }
-
-  /**
-   * Get current user
-   */
-  async me(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const user = await authService.getUserById(userId);
-
-      return successResponse(res, 'User retrieved successfully', { user });
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Request password reset
-   */
-  async forgotPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email } = req.body;
-      await authService.forgotPassword(email);
-
-      return successResponse(
-        res,
-        'If an account exists with this email, a password reset link has been sent.'
-      );
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Reset password
-   */
-  async resetPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { token, newPassword } = req.body;
-      await authService.resetPassword(token, newPassword);
-
-      return successResponse(res, 'Password has been reset successfully');
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Verify email
-   */
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { token } = req.params;
-      await authService.verifyEmail(token);
-
-      return successResponse(res, 'Email verified successfully');
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Resend verification email
-   */
-  async resendVerification(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { email } = req.body;
-      await authService.resendVerification(email);
-
-      return successResponse(res, 'Verification email sent');
-    } catch (error: any) {
-      next(error);
-    }
-  }
-}
-
-export default new AuthController();
+};

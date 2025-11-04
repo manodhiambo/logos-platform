@@ -46,6 +46,9 @@ console.log('⚙️  Setting up middleware...');
 // Middleware
 app.use(helmet());
 app.use(cors({
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true,
 }));
