@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ProfilePage() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,20 +55,11 @@ export default function ProfilePage() {
 
     setUploading(true);
     try {
-      const response = await apiClient.post('/auth/me/avatar', formData, {
+      await apiClient.post('/auth/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      alert('Avatar updated successfully! 📸');
-      
-      // Update user context
-      if (setUser && user) {
-        setUser({
-          ...user,
-          avatarUrl: response.data.data.avatarUrl
-        });
-      }
-      
+      alert('Avatar updated successfully! 📸 Refreshing...');
       window.location.reload();
     } catch (error: any) {
       console.error('Failed to upload avatar:', error);
@@ -81,15 +72,10 @@ export default function ProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await apiClient.put('/auth/me', formData);
-      alert('Profile updated successfully! ✅');
-      
-      // Update user context
-      if (setUser) {
-        setUser(response.data.data.user);
-      }
-      
+      await apiClient.put('/auth/me', formData);
+      alert('Profile updated successfully! ✅ Refreshing...');
       setEditing(false);
+      window.location.reload();
     } catch (error: any) {
       console.error('Failed to update profile:', error);
       alert(error.response?.data?.error?.message || 'Failed to update profile');
@@ -147,7 +133,7 @@ export default function ProfilePage() {
           <div>
             <label className="block text-sm font-medium mb-1">Bio</label>
             <textarea
-              value={formData.bio}
+              value={formData.bio || ''}
               onChange={(e) => setFormData({...formData, bio: e.target.value})}
               disabled={!editing}
               placeholder="Tell us about your faith journey..."
@@ -160,7 +146,7 @@ export default function ProfilePage() {
             <div>
               <label className="block text-sm font-medium mb-1">Denomination</label>
               <Input
-                value={formData.denomination}
+                value={formData.denomination || ''}
                 onChange={(e) => setFormData({...formData, denomination: e.target.value})}
                 disabled={!editing}
                 placeholder="e.g., Baptist, Methodist"
@@ -170,7 +156,7 @@ export default function ProfilePage() {
             <div>
               <label className="block text-sm font-medium mb-1">Country</label>
               <Input
-                value={formData.country}
+                value={formData.country || ''}
                 onChange={(e) => setFormData({...formData, country: e.target.value})}
                 disabled={!editing}
                 placeholder="e.g., USA, Kenya"
@@ -181,7 +167,7 @@ export default function ProfilePage() {
           <div>
             <label className="block text-sm font-medium mb-1">Spiritual Journey Stage</label>
             <select
-              value={formData.spiritualJourneyStage}
+              value={formData.spiritualJourneyStage || ''}
               onChange={(e) => setFormData({...formData, spiritualJourneyStage: e.target.value})}
               disabled={!editing}
               className="w-full border rounded px-3 py-2 text-sm md:text-base disabled:bg-gray-100"
@@ -213,7 +199,7 @@ export default function ProfilePage() {
           <div>
             <label className="block text-sm font-medium mb-1">Timezone</label>
             <select
-              value={formData.timezone}
+              value={formData.timezone || ''}
               onChange={(e) => setFormData({...formData, timezone: e.target.value})}
               disabled={!editing}
               className="w-full border rounded px-3 py-2 text-sm md:text-base disabled:bg-gray-100"
