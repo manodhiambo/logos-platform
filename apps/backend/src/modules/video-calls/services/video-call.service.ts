@@ -1,346 +1,256 @@
-import VideoCall, { CallType, CallStatus, CallPurpose } from '../models/VideoCall.model';
-import CallParticipant, { ParticipantRole } from '../models/CallParticipant.model';
+import VideoCall from '../models/VideoCall.model';
+import CallParticipant from '../models/CallParticipant.model';
 import User from '../../../database/models/user.model';
-import agoraTokenService from './agora-token.service';
-import { Op } from 'sequelize';
-import crypto from 'crypto';
+import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
 
 class VideoCallService {
-  /**
-   * Create a new video call
-   */
-  async createCall(
-    hostId: string,
-    data: {
-      title: string;
-      description?: string;
-      type: CallType;
-      purpose: CallPurpose;
-      scheduledAt?: Date;
-      maxParticipants?: number;
-      relatedTo?: string;
-      relatedType?: string;
-    }
-  ) {
-    // Generate unique channel name
-    const channelName = `logos_${crypto.randomBytes(16).toString('hex')}`;
+  private appId: string;
+  private appCertificate: string;
 
-    const call = await VideoCall.create({
-      channelName,
-      hostId,
-      title: data.title,
-      description: data.description,
-      type: data.type,
-      purpose: data.purpose,
-      scheduledAt: data.scheduledAt,
-      maxParticipants: data.maxParticipants || 50,
-      relatedTo: data.relatedTo,
-      relatedType: data.relatedType,
-      status: data.scheduledAt ? CallStatus.SCHEDULED : CallStatus.ONGOING,
-      isRecording: false,
-    });
-
-    // Add host as participant
-    await CallParticipant.create({
-      callId: call.id,
-      userId: hostId,
-      role: ParticipantRole.HOST,
-      isMuted: false,
-      isVideoOff: false,
-    });
-
-    return call;
+  constructor() {
+    this.appId = process.env.AGORA_APP_ID || '';
+    this.appCertificate = process.env.AGORA_APP_CERTIFICATE || '';
   }
 
-  /**
-   * Join a call
-   */
-  async joinCall(callId: string, userId: string) {
-    const call = await VideoCall.findByPk(callId);
-
-    if (!call) {
-      throw new Error('Call not found');
+  generateAgoraToken(channelName: string, uid: number, role: 'publisher' | 'subscriber' = 'publisher') {
+    if (!this.appId || !this.appCertificate) {
+      throw new Error('Agora credentials not configured');
     }
 
-    if (call.status === CallStatus.ENDED) {
-      throw new Error('This call has ended');
-    }
+    const currentTime = Math.floor(Date.now() / 1000);
+    const privilegeExpireTime = currentTime + 3600; // 1 hour
 
-    if (call.status === CallStatus.CANCELLED) {
-      throw new Error('This call has been cancelled');
-    }
+    const tokenRole = role === 'publisher' ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
-    // Check if already a participant
-    let participant = await CallParticipant.findOne({
-      where: { callId, userId },
-    });
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      this.appId,
+      this.appCertificate,
+      channelName,
+      uid,
+      tokenRole,
+      privilegeExpireTime
+    );
 
-    if (!participant) {
-      // Check max participants
-      const participantCount = await CallParticipant.count({
-        where: { callId },
+    return token;
+  }
+
+  async createCall(hostId: string, callData: any) {
+    try {
+      // Generate unique channel name
+      const channelName = `logos_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+      const call = await VideoCall.create({
+        channelName,
+        hostId,
+        type: callData.type || 'group',
+        purpose: callData.purpose || 'general',
+        status: callData.scheduledAt ? 'scheduled' : 'ongoing',
+        title: callData.title,
+        description: callData.description,
+        scheduledAt: callData.scheduledAt,
+        maxParticipants: callData.maxParticipants || 50,
+        isRecording: false,
+        relatedTo: callData.relatedTo,
+        relatedType: callData.relatedType,
       });
 
-      if (participantCount >= call.maxParticipants) {
-        throw new Error('Call has reached maximum participants');
+      // Add host as participant
+      await CallParticipant.create({
+        callId: call.id,
+        userId: hostId,
+        role: 'host',
+        joinedAt: callData.scheduledAt ? null : new Date(),
+      });
+
+      return call;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async joinCall(callId: string, userId: string) {
+    try {
+      const call = await VideoCall.findByPk(callId);
+
+      if (!call) {
+        throw new Error('Call not found');
       }
 
-      // Add as new participant
-      participant = await CallParticipant.create({
-        callId,
-        userId,
-        role: ParticipantRole.PARTICIPANT,
-        joinedAt: new Date(),
-        isMuted: false,
-        isVideoOff: false,
+      if (call.status === 'ended') {
+        throw new Error('Call has ended');
+      }
+
+      // Check if already in call
+      let participant = await CallParticipant.findOne({
+        where: { callId, userId }
       });
-    } else {
-      // Update join time - use undefined instead of null
-      await participant.update({
-        joinedAt: new Date(),
-        leftAt: undefined,
-      });
+
+      if (!participant) {
+        // Check max participants
+        const participantCount = await CallParticipant.count({
+          where: { callId }
+        });
+
+        if (participantCount >= call.maxParticipants) {
+          throw new Error('Call is full');
+        }
+
+        // Add participant
+        participant = await CallParticipant.create({
+          callId,
+          userId,
+          role: 'participant',
+          joinedAt: new Date(),
+        });
+      }
+
+      // Update call status to ongoing if it was scheduled
+      if (call.status === 'scheduled') {
+        await call.update({ 
+          status: 'ongoing',
+          startedAt: new Date()
+        });
+      }
+
+      // Generate Agora token
+      const uid = Math.floor(Math.random() * 1000000000);
+      const token = this.generateAgoraToken(call.channelName, uid, 'publisher');
+
+      return {
+        call,
+        participant,
+        token,
+        channelName: call.channelName,
+        uid,
+        appId: this.appId,
+      };
+    } catch (error) {
+      throw error;
     }
-
-    // Update call status if scheduled
-    if (call.status === CallStatus.SCHEDULED && !call.startedAt) {
-      await call.update({
-        status: CallStatus.ONGOING,
-        startedAt: new Date(),
-      });
-    }
-
-    // Generate Agora token
-    const uid = parseInt(userId.replace(/-/g, '').substring(0, 10), 16);
-    const token = agoraTokenService.generateRtcToken(call.channelName, uid, 'publisher');
-    const appId = agoraTokenService.getAppId();
-
-    return {
-      call,
-      participant,
-      token,
-      appId,
-      channelName: call.channelName,
-      uid,
-    };
   }
 
-  /**
-   * Leave a call
-   */
   async leaveCall(callId: string, userId: string) {
-    const participant = await CallParticipant.findOne({
-      where: { callId, userId },
-    });
-
-    if (!participant) {
-      throw new Error('Participant not found');
-    }
-
-    const leftAt = new Date();
-    const joinedAt = participant.joinedAt || participant.createdAt;
-    const duration = Math.floor((leftAt.getTime() - joinedAt.getTime()) / 1000);
-
-    await participant.update({
-      leftAt,
-      duration,
-    });
-
-    // Check if host left
-    const call = await VideoCall.findByPk(callId);
-    if (call && call.hostId === userId) {
-      // End the call if host leaves
-      await this.endCall(callId, userId);
-    }
-
-    return participant;
-  }
-
-  /**
-   * End a call
-   */
-  async endCall(callId: string, userId: string) {
-    const call = await VideoCall.findByPk(callId);
-
-    if (!call) {
-      throw new Error('Call not found');
-    }
-
-    if (call.hostId !== userId) {
-      throw new Error('Only the host can end the call');
-    }
-
-    await call.update({
-      status: CallStatus.ENDED,
-      endedAt: new Date(),
-    });
-
-    return call;
-  }
-
-  /**
-   * Get call details
-   */
-  async getCallById(callId: string) {
-    const call = await VideoCall.findByPk(callId, {
-      include: [
-        {
-          model: User,
-          as: 'host',
-          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
-        },
-      ],
-    });
-
-    if (!call) {
-      throw new Error('Call not found');
-    }
-
-    const participants = await CallParticipant.findAll({
-      where: { callId },
-      include: [
-        {
-          model: User,
-          as: 'user',
-          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
-        },
-      ],
-    });
-
-    return {
-      call,
-      participants,
-    };
-  }
-
-  /**
-   * Get active calls
-   */
-  async getActiveCalls(filters?: {
-    purpose?: CallPurpose;
-    relatedTo?: string;
-    relatedType?: string;
-  }) {
-    const where: any = {
-      status: CallStatus.ONGOING,
-    };
-
-    if (filters?.purpose) {
-      where.purpose = filters.purpose;
-    }
-
-    if (filters?.relatedTo) {
-      where.relatedTo = filters.relatedTo;
-    }
-
-    if (filters?.relatedType) {
-      where.relatedType = filters.relatedType;
-    }
-
-    const calls = await VideoCall.findAll({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'host',
-          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
-        },
-      ],
-      order: [['createdAt', 'DESC']],
-    });
-
-    return calls;
-  }
-
-  /**
-   * Get scheduled calls
-   */
-  async getScheduledCalls(userId?: string) {
-    const where: any = {
-      status: CallStatus.SCHEDULED,
-      scheduledAt: { [Op.gte]: new Date() },
-    };
-
-    if (userId) {
-      // Get calls where user is host or participant
-      const participantCalls = await CallParticipant.findAll({
-        where: { userId },
-        attributes: ['callId'],
+    try {
+      const participant = await CallParticipant.findOne({
+        where: { callId, userId }
       });
 
-      const callIds = participantCalls.map((p) => p.callId);
+      if (!participant) {
+        throw new Error('Participant not found');
+      }
 
-      where[Op.or] = [{ hostId: userId }, { id: { [Op.in]: callIds } }];
+      const leftAt = new Date();
+      const duration = participant.joinedAt 
+        ? Math.floor((leftAt.getTime() - participant.joinedAt.getTime()) / 1000)
+        : 0;
+
+      await participant.update({
+        leftAt,
+        duration,
+      });
+
+      return true;
+    } catch (error) {
+      throw error;
     }
-
-    const calls = await VideoCall.findAll({
-      where,
-      include: [
-        {
-          model: User,
-          as: 'host',
-          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
-        },
-      ],
-      order: [['scheduledAt', 'ASC']],
-    });
-
-    return calls;
   }
 
-  /**
-   * Get user's call history
-   */
-  async getUserCallHistory(userId: string, page = 1, limit = 20) {
+  async getActiveCalls(page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
 
-    const participantCalls = await CallParticipant.findAll({
-      where: { userId },
-      attributes: ['callId'],
-    });
-
-    const callIds = participantCalls.map((p) => p.callId);
-
     const { rows: calls, count } = await VideoCall.findAndCountAll({
-      where: {
-        [Op.or]: [{ hostId: userId }, { id: { [Op.in]: callIds } }],
-        status: { [Op.in]: [CallStatus.ENDED, CallStatus.CANCELLED] },
-      },
+      where: { status: 'ongoing' },
       include: [
         {
           model: User,
           as: 'host',
-          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
-        },
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+        }
       ],
-      order: [['createdAt', 'DESC']],
       limit,
       offset,
+      order: [['startedAt', 'DESC']],
+    });
+
+    // Get participant count for each call
+    for (const call of calls) {
+      const participantCount = await CallParticipant.count({
+        where: { callId: call.id, leftAt: null }
+      });
+      (call as any).dataValues.participantCount = participantCount;
+    }
+
+    return {
+      calls,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalCalls: count,
+        limit,
+      },
+    };
+  }
+
+  async getScheduledCalls(page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+
+    const { rows: calls, count } = await VideoCall.findAndCountAll({
+      where: { status: 'scheduled' },
+      include: [
+        {
+          model: User,
+          as: 'host',
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+        }
+      ],
+      limit,
+      offset,
+      order: [['scheduledAt', 'ASC']],
     });
 
     return {
       calls,
-      total: count,
-      page,
-      limit,
-      totalPages: Math.ceil(count / limit),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalCalls: count,
+        limit,
+      },
     };
   }
 
-  /**
-   * Update participant status (mute/video)
-   */
-  async updateParticipantStatus(callId: string, userId: string, updates: any) {
-    const participant = await CallParticipant.findOne({
-      where: { callId, userId },
+  async getCallHistory(userId: string, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+
+    const { rows: participants, count } = await CallParticipant.findAndCountAll({
+      where: { userId },
+      include: [
+        {
+          model: VideoCall,
+          as: 'call',
+          include: [
+            {
+              model: User,
+              as: 'host',
+              attributes: ['id', 'username', 'fullName'],
+            }
+          ],
+        }
+      ],
+      limit,
+      offset,
+      order: [['joinedAt', 'DESC']],
     });
 
-    if (!participant) {
-      throw new Error('Participant not found');
-    }
-
-    await participant.update(updates);
-    return participant;
+    return {
+      calls: participants.map(p => p.dataValues.call),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalCalls: count,
+        limit,
+      },
+    };
   }
 }
 
