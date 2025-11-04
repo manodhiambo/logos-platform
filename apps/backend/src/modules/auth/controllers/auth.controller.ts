@@ -59,9 +59,9 @@ class AuthController {
         username,
         passwordHash: hashedPassword,
         fullName,
-        role: 'user',
+        role: 'user' as any,
         emailVerified: false,
-      });
+      } as any);
 
       const token = jwt.sign(
         { userId: user.id },

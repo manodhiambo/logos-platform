@@ -3,62 +3,45 @@ import prayerService from '../services/prayer.service';
 import { successResponse } from '../../../shared/utils/response.util';
 
 class PrayerController {
-  /**
-   * Create a prayer request
-   */
   async createPrayerRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const prayerRequest = await prayerService.createPrayerRequest(req.body, userId);
-
+      const prayerRequest = await prayerService.createPrayerRequest(userId, req.body);
       return successResponse(res, 'Prayer request created successfully', { prayerRequest }, 201);
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Get prayer requests
-   */
   async getPrayerRequests(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.id;
-      const {
-        category,
-        status,
-        userId: filterUserId,
-        page = 1,
-        limit = 20,
-      } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const category = req.query.category as string;
+      const status = req.query.status as string;
 
-      const filters = {
-        category,
-        status,
-        userId: filterUserId,
-      };
+      const filters: any = {};
+      if (category) filters.category = category;
+      if (status) filters.status = status;
 
-      const result = await prayerService.getPrayerRequests(
-        filters,
-        userId,
-        Number(page),
-        Number(limit)
-      );
-
+      const result = await prayerService.getPrayerRequests(filters, page, limit);
       return successResponse(res, 'Prayer requests retrieved successfully', result);
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Get prayer request by ID
-   */
   async getPrayerRequestById(req: Request, res: Response, next: NextFunction) {
     try {
       const { requestId } = req.params;
-      const userId = req.user?.id;
+      const prayerRequest = await prayerService.getPrayerRequestById(requestId);
 
-      const prayerRequest = await prayerService.getPrayerRequestById(requestId, userId);
+      if (!prayerRequest) {
+        return res.status(404).json({
+          success: false,
+          error: { message: 'Prayer request not found' }
+        });
+      }
 
       return successResponse(res, 'Prayer request retrieved successfully', { prayerRequest });
     } catch (error: any) {
@@ -66,106 +49,70 @@ class PrayerController {
     }
   }
 
-  /**
-   * Update prayer request
-   */
   async updatePrayerRequest(req: Request, res: Response, next: NextFunction) {
     try {
-      const { requestId } = req.params;
       const userId = req.user!.id;
-
-      const prayerRequest = await prayerService.updatePrayerRequest(requestId, req.body, userId);
-
+      const { requestId } = req.params;
+      const prayerRequest = await prayerService.updatePrayerRequest(requestId, userId, req.body);
       return successResponse(res, 'Prayer request updated successfully', { prayerRequest });
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Delete prayer request
-   */
   async deletePrayerRequest(req: Request, res: Response, next: NextFunction) {
     try {
-      const { requestId } = req.params;
       const userId = req.user!.id;
-
-      const result = await prayerService.deletePrayerRequest(requestId, userId);
-
-      return successResponse(res, result.message);
+      const { requestId } = req.params;
+      await prayerService.deletePrayerRequest(requestId, userId);
+      return successResponse(res, 'Prayer request deleted successfully');
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Pray for a request
-   */
   async prayForRequest(req: Request, res: Response, next: NextFunction) {
     try {
-      const { requestId } = req.params;
       const userId = req.user!.id;
+      const { requestId } = req.params;
       const { message } = req.body;
-
       const result = await prayerService.prayForRequest(requestId, message, userId);
-
-      return successResponse(res, 'Your prayer has been recorded', result, 201);
+      return successResponse(res, 'Prayer added successfully', result);
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Get prayers for a request
-   */
   async getPrayers(req: Request, res: Response, next: NextFunction) {
     try {
       const { requestId } = req.params;
-      const { page = 1, limit = 50 } = req.query;
-
-      const result = await prayerService.getPrayers(
-        requestId,
-        Number(page),
-        Number(limit)
-      );
-
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const result = await prayerService.getPrayers(requestId, page, limit);
       return successResponse(res, 'Prayers retrieved successfully', result);
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Update prayer request status
-   */
   async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const { requestId } = req.params;
       const userId = req.user!.id;
+      const { requestId } = req.params;
       const { status, testimony } = req.body;
-
-      const prayerRequest = await prayerService.updateStatus(requestId, status, testimony, userId);
-
+      const prayerRequest = await prayerService.updatePrayerStatus(requestId, userId, status, testimony);
       return successResponse(res, 'Prayer request status updated successfully', { prayerRequest });
     } catch (error: any) {
       next(error);
     }
   }
 
-  /**
-   * Get user's own prayer requests
-   */
   async getMyPrayerRequests(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user!.id;
-      const { page = 1, limit = 20 } = req.query;
-
-      const result = await prayerService.getUserPrayerRequests(
-        userId,
-        Number(page),
-        Number(limit)
-      );
-
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const result = await prayerService.getMyPrayerRequests(userId, page, limit);
       return successResponse(res, 'Your prayer requests retrieved successfully', result);
     } catch (error: any) {
       next(error);

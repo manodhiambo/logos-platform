@@ -15,7 +15,6 @@ class PrayerService {
         privacyLevel: data.privacyLevel || 'public',
         status: 'active',
         prayerCount: 0,
-        isAnswered: false,
         isDeleted: false,
       });
 

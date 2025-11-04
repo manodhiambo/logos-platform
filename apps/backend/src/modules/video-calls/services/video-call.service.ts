@@ -2,6 +2,8 @@ import VideoCall from '../models/VideoCall.model';
 import CallParticipant from '../models/CallParticipant.model';
 import User from '../../../database/models/user.model';
 import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
+import { Op, QueryTypes } from 'sequelize';
+import { sequelize } from '../../../config/database.config';
 
 class VideoCallService {
   private appId: string;
@@ -18,8 +20,7 @@ class VideoCallService {
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const privilegeExpireTime = currentTime + 3600; // 1 hour
-
+    const privilegeExpireTime = currentTime + 3600;
     const tokenRole = role === 'publisher' ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
 
     const token = RtcTokenBuilder.buildTokenWithUid(
@@ -36,7 +37,6 @@ class VideoCallService {
 
   async createCall(hostId: string, callData: any) {
     try {
-      // Generate unique channel name
       const channelName = `logos_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
       const call = await VideoCall.create({
@@ -44,7 +44,7 @@ class VideoCallService {
         hostId,
         type: callData.type || 'group',
         purpose: callData.purpose || 'general',
-        status: callData.scheduledAt ? 'scheduled' : 'ongoing',
+        status: callData.scheduledAt ? 'scheduled' as any : 'active' as any,
         title: callData.title,
         description: callData.description,
         scheduledAt: callData.scheduledAt,
@@ -54,12 +54,13 @@ class VideoCallService {
         relatedType: callData.relatedType,
       });
 
-      // Add host as participant
       await CallParticipant.create({
         callId: call.id,
         userId: hostId,
-        role: 'host',
-        joinedAt: callData.scheduledAt ? null : new Date(),
+        role: 'host' as any,
+        joinedAt: callData.scheduledAt ? undefined : new Date(),
+        isMuted: false,
+        isVideoOff: false,
       });
 
       return call;
@@ -80,13 +81,11 @@ class VideoCallService {
         throw new Error('Call has ended');
       }
 
-      // Check if already in call
       let participant = await CallParticipant.findOne({
         where: { callId, userId }
       });
 
       if (!participant) {
-        // Check max participants
         const participantCount = await CallParticipant.count({
           where: { callId }
         });
@@ -95,24 +94,23 @@ class VideoCallService {
           throw new Error('Call is full');
         }
 
-        // Add participant
         participant = await CallParticipant.create({
           callId,
           userId,
-          role: 'participant',
+          role: 'participant' as any,
           joinedAt: new Date(),
+          isMuted: false,
+          isVideoOff: false,
         });
       }
 
-      // Update call status to ongoing if it was scheduled
       if (call.status === 'scheduled') {
         await call.update({ 
-          status: 'ongoing',
+          status: 'active' as any,
           startedAt: new Date()
         });
       }
 
-      // Generate Agora token
       const uid = Math.floor(Math.random() * 1000000000);
       const token = this.generateAgoraToken(call.channelName, uid, 'publisher');
 
@@ -155,11 +153,30 @@ class VideoCallService {
     }
   }
 
+  async getActiveParticipantCount(callId: string): Promise<number> {
+    try {
+      // Use raw query to count participants where left_at IS NULL
+      const result = await sequelize.query(
+        `SELECT COUNT(*) as count FROM call_participants 
+         WHERE call_id = :callId AND left_at IS NULL`,
+        {
+          replacements: { callId },
+          type: QueryTypes.SELECT
+        }
+      ) as any[];
+
+      return parseInt(result[0]?.count || '0');
+    } catch (error) {
+      console.error('Error counting active participants:', error);
+      return 0;
+    }
+  }
+
   async getActiveCalls(page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
 
     const { rows: calls, count } = await VideoCall.findAndCountAll({
-      where: { status: 'ongoing' },
+      where: { status: 'active' as any },
       include: [
         {
           model: User,
@@ -172,12 +189,10 @@ class VideoCallService {
       order: [['startedAt', 'DESC']],
     });
 
-    // Get participant count for each call
+    // Get active participant counts for each call
     for (const call of calls) {
-      const participantCount = await CallParticipant.count({
-        where: { callId: call.id, leftAt: null }
-      });
-      (call as any).dataValues.participantCount = participantCount;
+      const participantCount = await this.getActiveParticipantCount(call.id);
+      (call as any).participantCount = participantCount;
     }
 
     return {
@@ -195,7 +210,7 @@ class VideoCallService {
     const offset = (page - 1) * limit;
 
     const { rows: calls, count } = await VideoCall.findAndCountAll({
-      where: { status: 'scheduled' },
+      where: { status: 'scheduled' as any },
       include: [
         {
           model: User,
@@ -243,7 +258,7 @@ class VideoCallService {
     });
 
     return {
-      calls: participants.map(p => p.dataValues.call),
+      calls: participants.map(p => (p as any).call),
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(count / limit),
@@ -251,6 +266,98 @@ class VideoCallService {
         limit,
       },
     };
+  }
+
+  async getCallById(callId: string) {
+    const call = await VideoCall.findByPk(callId, {
+      include: [
+        {
+          model: User,
+          as: 'host',
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+        }
+      ]
+    });
+
+    if (call) {
+      // Add active participant count
+      const participantCount = await this.getActiveParticipantCount(call.id);
+      (call as any).participantCount = participantCount;
+
+      // Get list of active participants
+      const participants = await CallParticipant.findAll({
+        where: { 
+          callId: call.id,
+          leftAt: { [Op.is]: null } as any
+        },
+        include: [
+          {
+            model: User,
+            as: 'user',
+            attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+          }
+        ]
+      });
+      (call as any).participants = participants;
+    }
+
+    return call;
+  }
+
+  async endCall(callId: string, userId: string) {
+    const call = await VideoCall.findByPk(callId);
+    if (!call) throw new Error('Call not found');
+    if (call.hostId !== userId) throw new Error('Only host can end call');
+    
+    await call.update({ status: 'ended' as any, endedAt: new Date() });
+    
+    // Mark all active participants as left
+    await CallParticipant.update(
+      { 
+        leftAt: new Date(),
+        duration: sequelize.literal('EXTRACT(EPOCH FROM (NOW() - joined_at))::INTEGER')
+      },
+      { 
+        where: { 
+          callId,
+          leftAt: { [Op.is]: null } as any
+        } as any
+      }
+    );
+
+    return call;
+  }
+
+  async updateParticipantStatus(callId: string, userId: string, updates: { isMuted?: boolean; isVideoOff?: boolean }) {
+    const participant = await CallParticipant.findOne({
+      where: { callId, userId }
+    });
+
+    if (!participant) {
+      throw new Error('Participant not found in call');
+    }
+
+    await participant.update(updates);
+    return participant;
+  }
+
+  async getCallParticipants(callId: string) {
+    const participants = await CallParticipant.findAll({
+      where: { 
+        callId,
+        leftAt: { [Op.is]: null } as any
+      },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+        }
+      ],
+      order: [['joinedAt', 'ASC']]
+    });
+
+    return participants;
   }
 }
 

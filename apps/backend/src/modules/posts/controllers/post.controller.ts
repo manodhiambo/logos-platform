@@ -38,7 +38,7 @@ export const getPosts = async (req: Request, res: Response) => {
     // Check if user has liked each post
     if (userId) {
       for (const post of result.posts) {
-        post.dataValues.isLiked = await postLikeService.hasUserLiked(post.id, userId);
+        (post as any).isLiked = await postLikeService.hasUserLiked(post.id, userId);
       }
     }
     

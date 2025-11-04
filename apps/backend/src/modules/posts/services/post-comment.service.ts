@@ -49,7 +49,7 @@ class PostCommentService {
       where: { 
         postId,
         isDeleted: false,
-        parentCommentId: null // Only top-level comments
+        parentCommentId: undefined // Only top-level comments
       },
       include: [{
         model: User,

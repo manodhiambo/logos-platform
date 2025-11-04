@@ -1,0 +1,11 @@
+      const user = await User.create({
+        email,
+        username,
+        passwordHash: hashedPassword,
+        fullName,
+        role: 'user' as any,
+        emailVerified: false,
+        spiritualJourneyStage: undefined,
+        status: 'active' as any,
+        preferredBibleTranslation: 'NKJV',
+      } as any);
