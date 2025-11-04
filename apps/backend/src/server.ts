@@ -2,12 +2,16 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import dotenv from 'dotenv';
-import { connectDatabase } from './config/database.config';
-import routes from './shared/routes';
-import { errorHandler } from './shared/middlewares/error.middleware';
-import { logger } from './shared/utils/logger.util';
+import { sequelize } from './config/database.config';
+import authRoutes from './modules/auth/routes/auth.routes';
+import postRoutes from './modules/posts/routes/post.routes';
+import prayerRoutes from './modules/prayer/routes/prayer.routes';
+import communityRoutes from './modules/community/routes/community.routes';
+import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
+import notificationRoutes from './modules/notifications/routes/notification.routes';
+import devotionalRoutes from './modules/devotional/routes/devotional.routes';
+import bibleRoutes from './modules/bible/routes/bible.routes';
 
 dotenv.config();
 
@@ -35,11 +39,6 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Logging middleware
-if (process.env.NODE_ENV !== 'production') {
-  app.use(morgan('dev'));
-}
-
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({
@@ -64,7 +63,14 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // API routes
-app.use('/api/v1', routes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/posts', postRoutes);
+app.use('/api/v1/prayer', prayerRoutes);
+app.use('/api/v1/communities', communityRoutes);
+app.use('/api/v1/video-calls', videoCallRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/devotionals', devotionalRoutes);
+app.use('/api/v1/bible', bibleRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -77,13 +83,26 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handling middleware
-app.use(errorHandler);
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error('Error:', err);
+  
+  const statusCode = err.statusCode || 500;
+  const message = err.message || 'Internal server error';
+
+  res.status(statusCode).json({
+    success: false,
+    error: {
+      message,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    },
+  });
+});
 
 // Start server
 const startServer = async () => {
   try {
     console.log('🔌 Connecting to database...');
-    await connectDatabase();
+    await sequelize.authenticate();
     console.log('✅ Database connected successfully');
 
     app.listen(PORT, () => {
@@ -94,7 +113,6 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
-    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 };
