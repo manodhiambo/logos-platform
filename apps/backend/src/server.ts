@@ -1,4 +1,5 @@
 import express, { Application, Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
@@ -46,6 +47,9 @@ console.log('⚙️  Setting up middleware...');
 // Middleware
 app.use(helmet());
 app.use(cors({
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
