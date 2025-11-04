@@ -17,13 +17,13 @@ export interface TokenPair {
 
 class JWTUtil {
   generateAccessToken(payload: JWTPayload): string {
-    return jwt.sign(payload, config.jwt.secret, {
+    return jwt.sign(payload, config.jwt.secret as string, {
       expiresIn: config.jwt.expiresIn,
     } as jwt.SignOptions);
   }
 
   generateRefreshToken(payload: JWTPayload): string {
-    return jwt.sign(payload, config.jwt.refreshSecret, {
+    return jwt.sign(payload, config.jwt.refreshSecret as string, {
       expiresIn: config.jwt.refreshExpiresIn,
     } as jwt.SignOptions);
   }
@@ -37,7 +37,7 @@ class JWTUtil {
 
   verifyAccessToken(token: string): JWTPayload {
     try {
-      return jwt.verify(token, config.jwt.secret) as JWTPayload;
+      return jwt.verify(token, config.jwt.secret as string) as JWTPayload;
     } catch (error) {
       throw new Error('Invalid or expired token');
     }
@@ -45,7 +45,7 @@ class JWTUtil {
 
   verifyRefreshToken(token: string): JWTPayload {
     try {
-      return jwt.verify(token, config.jwt.refreshSecret) as JWTPayload;
+      return jwt.verify(token, config.jwt.refreshSecret as string) as JWTPayload;
     } catch (error) {
       throw new Error('Invalid or expired refresh token');
     }

@@ -23,6 +23,7 @@
     "@types/json5": "^0.0.30",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.9.2",
+    "@types/nodemailer": "^7.0.3",
     "@types/prop-types": "^15.7.15",
     "concurrently": "^8.2.2"
   }

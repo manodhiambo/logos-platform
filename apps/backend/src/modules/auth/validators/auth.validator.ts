@@ -1,7 +1,6 @@
 import Joi from 'joi';
 import { SpiritualJourneyStage } from '../../../database/models/user.model';
 
-// Register validation schema
 export const registerSchema = Joi.object({
   body: Joi.object({
     email: Joi.string().email().required().messages({
@@ -38,18 +37,36 @@ export const registerSchema = Joi.object({
     }),
     spiritualJourneyStage: Joi.string()
       .valid(...Object.values(SpiritualJourneyStage))
-      .required()
-      .messages({
-        'any.only': 'Please select a valid spiritual journey stage',
-        'any.required': 'Spiritual journey stage is required',
-      }),
+      .optional(),
     denomination: Joi.string().max(100).optional().allow(''),
     country: Joi.string().max(100).optional().allow(''),
     timezone: Joi.string().max(100).optional().allow(''),
   }),
 });
 
-// Login validation schema
+export const verifyEmailSchema = Joi.object({
+  body: Joi.object({
+    email: Joi.string().email().required().messages({
+      'string.email': 'Please provide a valid email address',
+      'any.required': 'Email is required',
+    }),
+    code: Joi.string().length(6).pattern(/^\d+$/).required().messages({
+      'string.length': 'Verification code must be 6 digits',
+      'string.pattern.base': 'Verification code must contain only numbers',
+      'any.required': 'Verification code is required',
+    }),
+  }),
+});
+
+export const resendVerificationSchema = Joi.object({
+  body: Joi.object({
+    email: Joi.string().email().required().messages({
+      'string.email': 'Please provide a valid email address',
+      'any.required': 'Email is required',
+    }),
+  }),
+});
+
 export const loginSchema = Joi.object({
   body: Joi.object({
     emailOrUsername: Joi.string().required().messages({
@@ -58,10 +75,10 @@ export const loginSchema = Joi.object({
     password: Joi.string().required().messages({
       'any.required': 'Password is required',
     }),
+    rememberMe: Joi.boolean().optional(),
   }),
 });
 
-// Forgot password validation schema
 export const forgotPasswordSchema = Joi.object({
   body: Joi.object({
     email: Joi.string().email().required().messages({
@@ -71,7 +88,6 @@ export const forgotPasswordSchema = Joi.object({
   }),
 });
 
-// Reset password validation schema
 export const resetPasswordSchema = Joi.object({
   body: Joi.object({
     token: Joi.string().required().messages({
@@ -93,16 +109,6 @@ export const resetPasswordSchema = Joi.object({
   }),
 });
 
-// Verify email validation schema
-export const verifyEmailSchema = Joi.object({
-  body: Joi.object({
-    token: Joi.string().required().messages({
-      'any.required': 'Verification token is required',
-    }),
-  }),
-});
-
-// Refresh token validation schema
 export const refreshTokenSchema = Joi.object({
   body: Joi.object({
     refreshToken: Joi.string().required().messages({
@@ -111,7 +117,6 @@ export const refreshTokenSchema = Joi.object({
   }),
 });
 
-// Change password validation schema
 export const changePasswordSchema = Joi.object({
   body: Joi.object({
     currentPassword: Joi.string().required().messages({
@@ -133,7 +138,6 @@ export const changePasswordSchema = Joi.object({
   }),
 });
 
-// Update profile validation schema
 export const updateProfileSchema = Joi.object({
   body: Joi.object({
     fullName: Joi.string().min(2).max(100).optional(),

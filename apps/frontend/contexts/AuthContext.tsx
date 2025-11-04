@@ -26,10 +26,11 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (emailOrUsername: string, password: string) => Promise<void>;
+  login: (emailOrUsername: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: RegisterData) => Promise<{ needsVerification: boolean }>;
   logout: () => void;
   isAuthenticated: boolean;
+  refreshToken: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -55,26 +56,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setLoading(false);
     }
+
+    // Set up token refresh interval (every 14 minutes)
+    const refreshInterval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        refreshToken();
+      }
+    }, 14 * 60 * 1000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const loadUser = async () => {
     try {
-      const response = await apiClient.get('/users/profile');
-      setUser(response.data.data);
+      const response = await apiClient.get('/auth/me');
+      setUser(response.data.data.user);
     } catch (error) {
       console.error('Error loading user:', error);
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (emailOrUsername: string, password: string) => {
+  const login = async (emailOrUsername: string, password: string, rememberMe: boolean = false) => {
     const response = await apiClient.post('/auth/login', { 
       emailOrUsername, 
-      password 
+      password,
+      rememberMe,
     });
-    localStorage.setItem('token', response.data.data.token);
+    
+    localStorage.setItem('token', response.data.data.accessToken);
+    localStorage.setItem('refreshToken', response.data.data.refreshToken);
     setUser(response.data.data.user);
     router.push('/dashboard');
   };
@@ -91,8 +106,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { needsVerification: false };
   };
 
+  const refreshToken = async () => {
+    try {
+      const currentRefreshToken = localStorage.getItem('refreshToken');
+      if (!currentRefreshToken) return;
+
+      const response = await apiClient.post('/auth/refresh-token', {
+        refreshToken: currentRefreshToken,
+      });
+
+      localStorage.setItem('token', response.data.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.data.refreshToken);
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      logout();
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     setUser(null);
     router.push('/login');
   };
@@ -100,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
