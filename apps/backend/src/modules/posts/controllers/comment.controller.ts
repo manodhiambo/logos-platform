@@ -12,12 +12,10 @@ class CommentController {
       const userId = req.user!.id;
       const { content, parentCommentId } = req.body;
       
-      const comment = await commentService.createComment({
-        postId,
-        authorId: userId,
+      const comment = await commentService.addComment(postId, {
         content,
         parentCommentId,
-      });
+      }, userId);
       
       return successResponse(res, 'Comment added successfully', { comment }, 201);
     } catch (error: any) {
@@ -31,10 +29,12 @@ class CommentController {
   async getComments(req: Request, res: Response, next: NextFunction) {
     try {
       const { postId } = req.params;
+      const userId = req.user?.id;
       const { page = 1, limit = 20 } = req.query;
       
-      const result = await commentService.getPostComments(
+      const result = await commentService.getComments(
         postId,
+        userId,
         Number(page),
         Number(limit)
       );
