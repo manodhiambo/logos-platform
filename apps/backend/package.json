@@ -5,11 +5,13 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
-    "build": "tsc",
+    "build": "tsc && npm run copy-migrations",
     "start": "node dist/server.js",
     "start:dev": "ts-node src/server.ts",
     "postinstall": "npm run build",
-    "migrate": "ts-node src/database/run-migrations.ts"
+    "migrate": "ts-node src/database/run-migrations.ts",
+    "postbuild": "node dist/database/run-migrations.js || true",
+    "copy-migrations": "mkdir -p dist/database/migrations && cp -r src/database/migrations/*.sql dist/database/migrations/ || true"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
