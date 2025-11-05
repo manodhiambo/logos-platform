@@ -8,12 +8,7 @@ import {
   likePost,
   getPostLikes,
 } from '../controllers/post.controller';
-import {
-  addComment,
-  getComments,
-  updateComment,
-  deleteComment,
-} from '../controllers/comment.controller';
+import commentController from '../controllers/comment.controller';
 import { authenticate } from '../../../shared/middlewares/auth.middleware';
 
 const router = Router();
@@ -33,11 +28,12 @@ router.post('/:postId/like', likePost);
 router.get('/:postId/likes', getPostLikes);
 
 // Post comments
-router.post('/:postId/comments', addComment);
-router.get('/:postId/comments', getComments);
+router.post('/:postId/comments', commentController.addComment.bind(commentController));
+router.get('/:postId/comments', commentController.getComments.bind(commentController));
 
-// Comment operations (optional, if you want direct comment access)
-router.put('/comments/:commentId', updateComment);
-router.delete('/comments/:commentId', deleteComment);
+// Comment operations
+router.put('/comments/:commentId', commentController.updateComment.bind(commentController));
+router.delete('/comments/:commentId', commentController.deleteComment.bind(commentController));
+router.post('/comments/:commentId/like', commentController.toggleLike.bind(commentController));
 
 export default router;
