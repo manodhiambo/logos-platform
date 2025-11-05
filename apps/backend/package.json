@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "start:dev": "ts-node src/server.ts",
-    "postinstall": "npm run build"
+    "postinstall": "npm run build",
+    "migrate": "ts-node src/database/run-migrations.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.68.0",
