@@ -1,48 +1,66 @@
-import PostLike from '../models/PostLike.model';
-import Post from '../models/Post.model';
-import { sequelize } from '../../../config/database.config';
+import { Like, Post } from '../../../database/models';
+import { Op } from 'sequelize';
 
 class PostLikeService {
   async toggleLike(postId: string, userId: string) {
-    const transaction = await sequelize.transaction();
-    
-    try {
-      const existingLike = await PostLike.findOne({
-        where: { postId, userId }
-      });
+    const existingLike = await Like.findOne({
+      where: {
+        postId,
+        userId,
+      },
+    });
 
-      if (existingLike) {
-        await existingLike.destroy({ transaction });
-        await Post.decrement('likeCount', {
-          by: 1,
-          where: { id: postId },
-          transaction
-        });
-
-        await transaction.commit();
-        return { liked: false, action: 'unliked' };
-      } else {
-        await PostLike.create({ postId, userId }, { transaction });
-        await Post.increment('likeCount', {
-          by: 1,
-          where: { id: postId },
-          transaction
-        });
-
-        await transaction.commit();
-        return { liked: true, action: 'liked' };
+    if (existingLike) {
+      // Unlike
+      await existingLike.destroy();
+      
+      // Decrement like count
+      const post = await Post.findByPk(postId);
+      if (post && post.likesCount > 0) {
+        await post.decrement('likesCount');
       }
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
+      
+      return { liked: false };
+    } else {
+      // Like
+      await Like.create({
+        postId,
+        userId,
+      });
+      
+      // Increment like count
+      const post = await Post.findByPk(postId);
+      if (post) {
+        await post.increment('likesCount');
+      }
+      
+      return { liked: true };
     }
   }
 
+  async getLikeCount(postId: string) {
+    return await Like.count({
+      where: { postId },
+    });
+  }
+
   async hasUserLiked(postId: string, userId: string) {
-    const like = await PostLike.findOne({
-      where: { postId, userId }
+    const like = await Like.findOne({
+      where: { postId, userId },
     });
     return !!like;
+  }
+
+  async getPostLikes(postId: string) {
+    return await Like.findAll({
+      where: { postId },
+      include: [
+        {
+          association: 'user',
+          attributes: ['id', 'fullName', 'avatarUrl'],
+        },
+      ],
+    });
   }
 }
 
