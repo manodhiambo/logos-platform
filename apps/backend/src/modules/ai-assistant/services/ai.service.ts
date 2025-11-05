@@ -1,20 +1,12 @@
 import { AIConversation, AIMessage, User } from '../../../database/models';
 import { MessageRole } from '../../../database/models/ai-message.model';
-import Anthropic from '@anthropic-ai/sdk';
+import poeApiService from './poe-api.service';
 
 export class AIService {
-  private anthropic: Anthropic;
-
-  constructor() {
-    this.anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-  }
-
   async createConversation(userId: string, title: string, initialMessage: string) {
     const conversation = await AIConversation.create({
       userId,
-      title,
+      title: title || poeApiService.generateTitle(initialMessage),
       isArchived: false,
     });
 
@@ -41,39 +33,33 @@ export class AIService {
       content,
     });
 
+    // Get conversation history
     const history = await AIMessage.findAll({
       where: { conversationId },
       order: [['createdAt', 'ASC']],
       limit: 20,
     });
 
-    const messages = history
+    // Format history for Poe
+    const conversationHistory = history
       .filter(msg => msg.id !== userMessage.id)
       .map(msg => ({
-        role: msg.role === MessageRole.USER ? 'user' as const : 'assistant' as const,
+        role: msg.role === MessageRole.USER ? 'user' as const : 'bot' as const,
         content: msg.content,
       }));
 
-    messages.push({
-      role: 'user' as const,
-      content,
-    });
+    // Call Poe API
+    const poeResponse = await poeApiService.sendMessage(content, conversationHistory);
 
-    const response = await this.anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages,
-      system: 'You are a helpful Christian AI assistant for the LOGOS platform. Provide biblical wisdom, prayer support, and spiritual guidance while being respectful and compassionate.',
-    });
+    // Extract Bible references
+    const bibleReferences = poeApiService.extractBibleReferences(poeResponse.text);
 
-    const assistantContent = response.content[0].type === 'text' 
-      ? response.content[0].text 
-      : 'I apologize, but I encountered an error generating a response.';
-
+    // Save assistant message
     const assistantMessage = await AIMessage.create({
       conversationId,
       role: MessageRole.ASSISTANT,
-      content: assistantContent,
+      content: poeResponse.text,
+      bibleReferences: bibleReferences.length > 0 ? bibleReferences : null,
     });
 
     return {
@@ -149,25 +135,12 @@ export class AIService {
   }
 
   async quickAsk(question: string) {
-    const response = await this.anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: question,
-        },
-      ],
-      system: 'You are a helpful Christian AI assistant for the LOGOS platform. Provide biblical wisdom, prayer support, and spiritual guidance while being respectful and compassionate.',
-    });
-
-    const answer = response.content[0].type === 'text' 
-      ? response.content[0].text 
-      : 'I apologize, but I encountered an error generating a response.';
+    const poeResponse = await poeApiService.sendMessage(question, []);
 
     return {
       question,
-      answer,
+      answer: poeResponse.text,
+      bibleReferences: poeApiService.extractBibleReferences(poeResponse.text),
     };
   }
 }
