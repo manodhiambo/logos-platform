@@ -1,51 +1,59 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../../config/database.config';
 
-export interface PrayerAttributes {
+export interface CallParticipantAttributes {
   id: string;
-  prayerRequestId: string;
+  callId: string;
   userId: string;
-  message?: string;
+  joinedAt?: Date;
+  leftAt?: Date;
   createdAt?: Date;
 }
 
-class Prayer extends Model<PrayerAttributes> implements PrayerAttributes {
+class CallParticipant extends Model<CallParticipantAttributes> implements CallParticipantAttributes {
   public id!: string;
-  public prayerRequestId!: string;
+  public callId!: string;
   public userId!: string;
-  public message?: string;
+  public joinedAt?: Date;
+  public leftAt?: Date;
   public readonly createdAt!: Date;
 }
 
-Prayer.init(
+CallParticipant.init(
   {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    prayerRequestId: {
+    callId: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'prayer_request_id',
+      field: 'call_id',
     },
     userId: {
       type: DataTypes.UUID,
       allowNull: false,
       field: 'user_id',
     },
-    message: {
-      type: DataTypes.TEXT,
+    joinedAt: {
+      type: DataTypes.DATE,
       allowNull: true,
+      field: 'joined_at',
+    },
+    leftAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'left_at',
     },
   },
   {
     sequelize,
-    tableName: 'prayers',
+    tableName: 'call_participants',
     timestamps: true,
     underscored: true,
     updatedAt: false,
   }
 );
 
-export default Prayer;
+export default CallParticipant;

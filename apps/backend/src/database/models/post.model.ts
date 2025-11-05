@@ -3,7 +3,8 @@ import { sequelize } from '../../config/database.config';
 
 export enum PostType {
   DISCUSSION = 'discussion',
-  PRAYER_REQUEST = 'prayer_request',
+  ANNOUNCEMENT = 'announcement',
+  PRAYER = 'prayer',
   TESTIMONY = 'testimony',
   QUESTION = 'question',
 }
@@ -32,7 +33,6 @@ class Post extends Model<PostAttributes> implements PostAttributes {
   public isPinned!: boolean;
   public likesCount!: number;
   public commentsCount!: number;
-
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -47,18 +47,12 @@ Post.init(
     communityId: {
       type: DataTypes.UUID,
       allowNull: true,
-      references: {
-        model: 'communities',
-        key: 'id',
-      },
+      field: 'community_id',
     },
     authorId: {
       type: DataTypes.UUID,
       allowNull: false,
-      references: {
-        model: 'users',
-        key: 'id',
-      },
+      field: 'author_id',
     },
     content: {
       type: DataTypes.TEXT,
@@ -68,6 +62,7 @@ Post.init(
       type: DataTypes.ENUM(...Object.values(PostType)),
       allowNull: false,
       defaultValue: PostType.DISCUSSION,
+      field: 'post_type',
     },
     attachments: {
       type: DataTypes.JSONB,
@@ -76,14 +71,17 @@ Post.init(
     isPinned: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
+      field: 'is_pinned',
     },
     likesCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+      field: 'likes_count',
     },
     commentsCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+      field: 'comments_count',
     },
   },
   {
@@ -91,11 +89,6 @@ Post.init(
     tableName: 'posts',
     timestamps: true,
     underscored: true,
-    indexes: [
-      { fields: ['community_id'] },
-      { fields: ['author_id'] },
-      { fields: ['created_at'] },
-    ],
   }
 );
 

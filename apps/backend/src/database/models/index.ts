@@ -12,10 +12,10 @@ import Notification from './notification.model';
 import AIConversation from './ai-conversation.model';
 import AIMessage from './ai-message.model';
 import Announcement from './announcement.model';
+import VideoCall from './video-call.model';
+import CallParticipant from './call-participant.model';
 
-// ==========================================
-// USER ASSOCIATIONS
-// ==========================================
+// User Associations
 User.hasMany(Community, { foreignKey: 'createdBy', as: 'createdCommunities' });
 User.hasMany(CommunityMember, { foreignKey: 'userId', as: 'communityMemberships' });
 User.hasMany(Post, { foreignKey: 'authorId', as: 'posts' });
@@ -28,88 +28,72 @@ User.hasMany(UserDevotionalProgress, { foreignKey: 'userId', as: 'devotionalProg
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(AIConversation, { foreignKey: 'userId', as: 'aiConversations' });
 User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
+User.hasMany(VideoCall, { foreignKey: 'createdBy', as: 'createdVideoCalls' });
+User.hasMany(CallParticipant, { foreignKey: 'userId', as: 'callParticipations' });
 
-// ==========================================
-// COMMUNITY ASSOCIATIONS
-// ==========================================
+// Community Associations
 Community.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 Community.hasMany(CommunityMember, { foreignKey: 'communityId', as: 'members' });
 Community.hasMany(Post, { foreignKey: 'communityId', as: 'posts' });
 
-// ==========================================
-// COMMUNITY MEMBER ASSOCIATIONS
-// ==========================================
+// CommunityMember Associations
 CommunityMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 CommunityMember.belongsTo(Community, { foreignKey: 'communityId', as: 'community' });
 
-// ==========================================
-// POST ASSOCIATIONS
-// ==========================================
+// Post Associations
 Post.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 Post.belongsTo(Community, { foreignKey: 'communityId', as: 'community' });
 Post.hasMany(Comment, { foreignKey: 'postId', as: 'comments' });
 Post.hasMany(Like, { foreignKey: 'postId', as: 'likes' });
 
-// ==========================================
-// COMMENT ASSOCIATIONS
-// ==========================================
+// Comment Associations
 Comment.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 Comment.belongsTo(Post, { foreignKey: 'postId', as: 'post' });
 Comment.belongsTo(Comment, { foreignKey: 'parentCommentId', as: 'parentComment' });
 Comment.hasMany(Comment, { foreignKey: 'parentCommentId', as: 'replies' });
 Comment.hasMany(Like, { foreignKey: 'commentId', as: 'likes' });
 
-// ==========================================
-// LIKE ASSOCIATIONS
-// ==========================================
+// Like Associations
 Like.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Like.belongsTo(Post, { foreignKey: 'postId', as: 'post' });
 Like.belongsTo(Comment, { foreignKey: 'commentId', as: 'comment' });
 
-// ==========================================
-// PRAYER REQUEST ASSOCIATIONS
-// ==========================================
+// Prayer Request Associations
 PrayerRequest.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 PrayerRequest.hasMany(Prayer, { foreignKey: 'prayerRequestId', as: 'prayers' });
 
-// ==========================================
-// PRAYER ASSOCIATIONS
-// ==========================================
+// Prayer Associations
 Prayer.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Prayer.belongsTo(PrayerRequest, { foreignKey: 'prayerRequestId', as: 'prayerRequest' });
 
-// ==========================================
-// DEVOTIONAL ASSOCIATIONS
-// ==========================================
+// Devotional Associations
 Devotional.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 Devotional.hasMany(UserDevotionalProgress, { foreignKey: 'devotionalId', as: 'userProgress' });
 
-// ==========================================
-// USER DEVOTIONAL PROGRESS ASSOCIATIONS
-// ==========================================
+// UserDevotionalProgress Associations
 UserDevotionalProgress.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 UserDevotionalProgress.belongsTo(Devotional, { foreignKey: 'devotionalId', as: 'devotional' });
 
-// ==========================================
-// NOTIFICATION ASSOCIATIONS
-// ==========================================
+// Notification Associations
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-// ==========================================
-// AI CONVERSATION ASSOCIATIONS
-// ==========================================
+// AI Conversation Associations
 AIConversation.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 AIConversation.hasMany(AIMessage, { foreignKey: 'conversationId', as: 'messages' });
 
-// ==========================================
-// AI MESSAGE ASSOCIATIONS
-// ==========================================
+// AI Message Associations
 AIMessage.belongsTo(AIConversation, { foreignKey: 'conversationId', as: 'conversation' });
 
-// ==========================================
-// ANNOUNCEMENT ASSOCIATIONS
-// ==========================================
+// Announcement Associations
 Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+
+// VideoCall Associations
+VideoCall.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+VideoCall.hasMany(CallParticipant, { foreignKey: 'callId', as: 'participants' });
+
+// CallParticipant Associations
+CallParticipant.belongsTo(VideoCall, { foreignKey: 'callId', as: 'call' });
+CallParticipant.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 export {
   User,
@@ -126,4 +110,6 @@ export {
   AIConversation,
   AIMessage,
   Announcement,
+  VideoCall,
+  CallParticipant,
 };
