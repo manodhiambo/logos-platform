@@ -36,7 +36,7 @@ class PrayerService {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -59,7 +59,7 @@ class PrayerService {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -125,7 +125,7 @@ class PrayerService {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });

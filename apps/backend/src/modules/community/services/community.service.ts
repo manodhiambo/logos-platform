@@ -44,7 +44,7 @@ class CommunityService {
         {
           model: User,
           as: 'creator',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -66,7 +66,7 @@ class CommunityService {
         {
           model: User,
           as: 'creator',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -201,7 +201,7 @@ class CommunityService {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl', 'role'],
+          attributes: ['id', 'fullName', 'avatarUrl', 'role'],
         },
       ],
     });
@@ -260,7 +260,7 @@ class CommunityService {
             {
               model: User,
               as: 'creator',
-              attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+              attributes: ['id', 'fullName', 'avatarUrl'],
             },
           ],
         },

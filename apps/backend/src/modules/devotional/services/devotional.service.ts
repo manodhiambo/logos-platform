@@ -13,7 +13,7 @@ class DevotionalService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -62,7 +62,7 @@ class DevotionalService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
@@ -89,7 +89,7 @@ class DevotionalService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
       ],
     });
