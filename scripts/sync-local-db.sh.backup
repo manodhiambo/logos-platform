@@ -1,0 +1,74 @@
+cd ~/logos-platform/scripts
+
+# Backup the original
+cp sync-local-db.sh sync-local-db.sh.backup
+
+# Create updated script
+cat > sync-local-db.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Default to local database
+DB_URL="${DATABASE_URL:-postgresql://postgres:Mycat%4095@localhost:5432/logos_platform}"
+
+# Allow override from command line argument
+if [ ! -z "$1" ]; then
+  DB_URL="$1"
+  echo "🌐 Using provided database URL"
+else
+  echo "🏠 Using local database"
+fi
+
+MIGRATIONS_DIR="apps/backend/src/database/migrations"
+
+echo "=========================================="
+echo "🗄️  LOGOS Platform Database Migration Tool"
+echo "=========================================="
+echo "📁 Migrations directory: $MIGRATIONS_DIR"
+echo ""
+
+# Test connection
+echo "🔌 Testing database connection..."
+if psql "$DB_URL" -c "SELECT 1" > /dev/null 2>&1; then
+  echo "✅ Database connection successful"
+else
+  echo "❌ Database connection failed"
+  exit 1
+fi
+
+echo ""
+echo "🧩 Running migrations..."
+echo "=========================================="
+
+# Run migrations in order
+for file in $(ls -v $MIGRATIONS_DIR/*.sql); do
+  filename=$(basename "$file")
+  echo "📄 Applying: $filename"
+  
+  if psql "$DB_URL" -f "$file" > /dev/null 2>&1; then
+    echo "   ✅ Success"
+  else
+    echo "   ⚠️  Warning: May have already been applied or contains errors"
+  fi
+done
+
+echo "=========================================="
+echo "✅ All migrations completed!"
+echo ""
+echo "📊 Database tables:"
+psql "$DB_URL" -c "\dt"
+
+echo ""
+echo "🎉 Migration process complete!"
+EOF
+
+chmod +x sync-local-db.sh
+
+echo "✅ Script updated!"
+echo ""
+echo "Usage:"
+echo "  Local:  ./sync-local-db.sh"
+echo "  Render: ./sync-local-db.sh 'YOUR_RENDER_DATABASE_URL'"
+echo ""
+echo "Example with Render:"
+echo "  ./sync-local-db.sh 'postgresql://user:pass@host:5432/dbname'"
