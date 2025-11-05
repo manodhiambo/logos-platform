@@ -1,17 +1,11 @@
-import Devotional from '../models/Devotional.model';
-import UserDevotionalProgress from '../models/UserDevotionalProgress.model';
-import User from '../../../database/models/user.model';
+import { Devotional, UserDevotionalProgress, User } from '../../../database/models';
 import { Op } from 'sequelize';
 
 class DevotionalService {
-  /**
-   * Get all devotionals
-   */
   async getDevotionals(page: number = 1, limit: number = 20, userId?: string) {
     const offset = (page - 1) * limit;
 
     const { rows: devotionals, count: total } = await Devotional.findAndCountAll({
-      where: { isPublished: true },
       limit,
       offset,
       order: [['publishedDate', 'DESC']],
@@ -19,127 +13,83 @@ class DevotionalService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
         },
       ],
     });
 
-    // Get user progress if userId provided
-    let devotionalsWithProgress = devotionals;
     if (userId) {
-      const devotionalIds = devotionals.map(d => d.id);
-      const userProgress = await UserDevotionalProgress.findAll({
+      const devotionalIds = devotionals.map((d: any) => d.id);
+      const progress = await UserDevotionalProgress.findAll({
         where: {
           userId,
           devotionalId: { [Op.in]: devotionalIds },
         },
       });
 
-      const progressMap = new Map(userProgress.map(p => [p.devotionalId, p]));
-
-      devotionalsWithProgress = devotionals.map((devotional: any) => {
-        const progress = progressMap.get(devotional.id);
-        return {
-          ...devotional.toJSON(),
-          userProgress: progress ? {
-            completed: progress.completed,
-            completedAt: progress.completedAt,
-            hasNotes: !!progress.notes,
-          } : null,
-        };
+      const progressMap = new Map(progress.map((p: any) => [p.devotionalId, p]));
+      
+      devotionals.forEach((devotional: any) => {
+        const userProgress = progressMap.get(devotional.id);
+        devotional.dataValues.isCompleted = userProgress?.completed || false;
+        devotional.dataValues.notes = userProgress?.notes || null;
       });
     }
 
     return {
-      devotionals: devotionalsWithProgress,
+      devotionals,
       pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalDevotionals: total,
+        total,
+        page,
         limit,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
 
-  /**
-   * Get today's devotional
-   */
   async getTodaysDevotional(userId?: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     const devotional = await Devotional.findOne({
       where: {
-        publishedDate: today,
-        isPublished: true,
+        publishedDate: {
+          [Op.gte]: today,
+          [Op.lt]: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+        },
       },
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
         },
       ],
     });
 
     if (!devotional) {
-      // If no devotional for today, get the most recent one
-      const recentDevotional = await Devotional.findOne({
-        where: { isPublished: true },
-        order: [['publishedDate', 'DESC']],
-        include: [
-          {
-            model: User,
-            as: 'author',
-            attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-          },
-        ],
+      return null;
+    }
+
+    if (userId) {
+      const progress = await UserDevotionalProgress.findOne({
+        where: { userId, devotionalId: devotional.id },
       });
 
-      if (!recentDevotional) {
-        throw new Error('No devotionals available');
-      }
-
-      return this.getDevotionalWithProgress(recentDevotional.id, userId);
+      (devotional as any).dataValues.isCompleted = progress?.completed || false;
+      (devotional as any).dataValues.notes = progress?.notes || null;
     }
 
-    return this.getDevotionalWithProgress(devotional.id, userId);
+    return devotional;
   }
 
-  /**
-   * Get devotional by ID
-   */
   async getDevotionalById(devotionalId: string, userId?: string) {
-    const devotional = await Devotional.findOne({
-      where: { id: devotionalId, isPublished: true },
-      include: [
-        {
-          model: User,
-          as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl', 'bio'],
-        },
-      ],
-    });
-
-    if (!devotional) {
-      throw new Error('Devotional not found');
-    }
-
-    // Increment views count
-    await devotional.increment('viewsCount', { by: 1 });
-
-    return this.getDevotionalWithProgress(devotionalId, userId);
-  }
-
-  /**
-   * Get devotional with user progress
-   */
-  private async getDevotionalWithProgress(devotionalId: string, userId?: string) {
     const devotional = await Devotional.findByPk(devotionalId, {
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl', 'bio'],
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
         },
       ],
     });
@@ -148,39 +98,19 @@ class DevotionalService {
       throw new Error('Devotional not found');
     }
 
-    let userProgress: any = null;
     if (userId) {
       const progress = await UserDevotionalProgress.findOne({
         where: { userId, devotionalId },
       });
 
-      if (progress) {
-        userProgress = {
-          completed: progress.completed,
-          notes: progress.notes,
-          completedAt: progress.completedAt,
-        };
-      }
+      (devotional as any).dataValues.isCompleted = progress?.completed || false;
+      (devotional as any).dataValues.notes = progress?.notes || null;
     }
 
-    return {
-      ...devotional.toJSON(),
-      userProgress,
-    };
+    return devotional;
   }
 
-  /**
-   * Mark devotional as complete
-   */
   async markAsComplete(devotionalId: string, userId: string) {
-    const devotional = await Devotional.findOne({
-      where: { id: devotionalId, isPublished: true },
-    });
-
-    if (!devotional) {
-      throw new Error('Devotional not found');
-    }
-
     const [progress, created] = await UserDevotionalProgress.findOrCreate({
       where: { userId, devotionalId },
       defaults: {
@@ -201,37 +131,21 @@ class DevotionalService {
     return progress;
   }
 
-  /**
-   * Add or update notes
-   */
   async addNotes(devotionalId: string, notes: string, userId: string) {
-    const devotional = await Devotional.findOne({
-      where: { id: devotionalId, isPublished: true },
-    });
-
-    if (!devotional) {
-      throw new Error('Devotional not found');
-    }
-
-    const [progress, created] = await UserDevotionalProgress.findOrCreate({
+    const [progress] = await UserDevotionalProgress.findOrCreate({
       where: { userId, devotionalId },
       defaults: {
         userId,
         devotionalId,
         notes,
+        completed: false,
       },
     });
 
-    if (!created) {
-      await progress.update({ notes });
-    }
-
+    await progress.update({ notes });
     return progress;
   }
 
-  /**
-   * Get user's devotional progress
-   */
   async getUserProgress(userId: string, page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
 
@@ -239,18 +153,11 @@ class DevotionalService {
       where: { userId },
       limit,
       offset,
-      order: [['updatedAt', 'DESC']],
+      order: [['completedAt', 'DESC']],
       include: [
         {
           model: Devotional,
           as: 'devotional',
-          include: [
-            {
-              model: User,
-              as: 'author',
-              attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-            },
-          ],
         },
       ],
     });
@@ -258,69 +165,96 @@ class DevotionalService {
     return {
       progress,
       pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalProgress: total,
+        total,
+        page,
         limit,
+        totalPages: Math.ceil(total / limit),
       },
     };
   }
 
-  /**
-   * Get user's stats
-   */
   async getUserStats(userId: string) {
     const totalCompleted = await UserDevotionalProgress.count({
       where: { userId, completed: true },
     });
 
     const currentStreak = await this.calculateStreak(userId);
-
-    const recentProgress = await UserDevotionalProgress.findAll({
-      where: { userId },
-      order: [['updatedAt', 'DESC']],
-      limit: 7,
-    });
+    const longestStreak = await this.calculateLongestStreak(userId);
 
     return {
       totalCompleted,
       currentStreak,
-      recentActivity: recentProgress.length,
+      longestStreak,
     };
   }
 
-  /**
-   * Calculate user's streak
-   */
   private async calculateStreak(userId: string): Promise<number> {
     const progress = await UserDevotionalProgress.findAll({
       where: { userId, completed: true },
       order: [['completedAt', 'DESC']],
-      limit: 365,
+      attributes: ['completedAt'],
     });
 
     if (progress.length === 0) return 0;
 
-    let streak = 0;
-    let currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
+    let streak = 1;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    for (const p of progress) {
-      if (!p.completedAt) continue;
+    const lastCompleted = new Date(progress[0].completedAt!);
+    lastCompleted.setHours(0, 0, 0, 0);
 
-      const completedDate = new Date(p.completedAt);
-      completedDate.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today.getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff > 1) return 0;
 
-      const diffDays = Math.floor((currentDate.getTime() - completedDate.getTime()) / (1000 * 60 * 60 * 24));
+    for (let i = 1; i < progress.length; i++) {
+      const current = new Date(progress[i - 1].completedAt!);
+      const previous = new Date(progress[i].completedAt!);
+      current.setHours(0, 0, 0, 0);
+      previous.setHours(0, 0, 0, 0);
 
-      if (diffDays === streak) {
+      const diff = Math.floor((current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diff === 1) {
         streak++;
-      } else if (diffDays > streak) {
+      } else {
         break;
       }
     }
 
     return streak;
+  }
+
+  private async calculateLongestStreak(userId: string): Promise<number> {
+    const progress = await UserDevotionalProgress.findAll({
+      where: { userId, completed: true },
+      order: [['completedAt', 'ASC']],
+      attributes: ['completedAt'],
+    });
+
+    if (progress.length === 0) return 0;
+
+    let maxStreak = 1;
+    let currentStreak = 1;
+
+    for (let i = 1; i < progress.length; i++) {
+      const current = new Date(progress[i].completedAt!);
+      const previous = new Date(progress[i - 1].completedAt!);
+      current.setHours(0, 0, 0, 0);
+      previous.setHours(0, 0, 0, 0);
+
+      const diff = Math.floor((current.getTime() - previous.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diff === 1) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else if (diff > 1) {
+        currentStreak = 1;
+      }
+    }
+
+    return maxStreak;
   }
 }
 

@@ -35,7 +35,6 @@ export const getPosts = async (req: Request, res: Response) => {
     
     const result = await postService.getPosts(filters, page, limit);
     
-    // Check if user has liked each post
     if (userId) {
       for (const post of result.posts) {
         (post as any).isLiked = await postLikeService.hasUserLiked(post.id, userId);
@@ -130,7 +129,6 @@ export const likePost = async (req: Request, res: Response) => {
     
     const result = await postLikeService.toggleLike(postId, userId);
     
-    // Get updated post
     const post = await postService.getPostById(postId);
     
     return res.status(200).json({
@@ -138,7 +136,7 @@ export const likePost = async (req: Request, res: Response) => {
       message: `Post ${result.action} successfully`,
       data: { 
         ...result,
-        likeCount: post?.likeCount || 0
+        likeCount: post?.likesCount || 0
       }
     });
   } catch (error: any) {

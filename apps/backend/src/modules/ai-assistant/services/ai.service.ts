@@ -1,304 +1,173 @@
-import axios from 'axios';
-import AIConversation from '../models/AIConversation.model';
-import AIMessage from '../models/AIMessage.model';
+import { AIConversation, AIMessage, User } from '../../../database/models';
+import { MessageRole } from '../../../database/models/ai-message.model';
+import Anthropic from '@anthropic-ai/sdk';
 
 export class AIService {
-  private poeApiKey: string;
-  private poeApiUrl: string;
+  private anthropic: Anthropic;
 
   constructor() {
-    this.poeApiKey = process.env.POE_API_KEY || '';
-    this.poeApiUrl = 'https://api.poe.com/v1';
+    this.anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
   }
 
   async createConversation(userId: string, title: string, initialMessage: string) {
-    try {
-      // Create conversation in database
-      const conversation = await AIConversation.create({
-        userId: userId,
-        title: title.substring(0, 100),
-        conversationContext: {},
-        poeConversationId: undefined,
-        isArchived: false,
-      });
+    const conversation = await AIConversation.create({
+      userId,
+      title,
+      isArchived: false,
+    });
 
-      // Create user message
-      const userMessage = await AIMessage.create({
-        conversationId: conversation.id,
-        role: 'user',
-        content: initialMessage,
-        bibleReferences: [],
-        metadata: {},
-      });
+    const messages = await this.sendMessage(conversation.id, userId, initialMessage);
 
-      // Get AI response
-      let assistantMessage;
-      try {
-        const aiResponse = await this.callPOEAPI(initialMessage);
-        assistantMessage = await AIMessage.create({
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: aiResponse.content,
-          bibleReferences: aiResponse.bibleReferences || [],
-          metadata: {},
-        });
-      } catch (aiError) {
-        console.error('POE API error:', aiError);
-        // Fallback response
-        assistantMessage = await AIMessage.create({
-          conversationId: conversation.id,
-          role: 'assistant',
-          content: "I'm here to help you explore God's Word and grow in your faith. The Bible teaches us that God loves us deeply and has a wonderful plan for our lives. How can I assist you in your spiritual journey today?",
-          bibleReferences: [{
-            book: 'John',
-            chapter: 3,
-            verses: [16],
-            translation: 'NKJV',
-            text: 'For God so loved the world that He gave His only begotten Son, that whoever believes in Him should not perish but have everlasting life.'
-          }],
-          metadata: { fallback: true },
-        });
-      }
-
-      return {
-        conversation: {
-          id: conversation.id,
-          userId: conversation.userId,
-          title: conversation.title,
-          createdAt: conversation.createdAt,
-        },
-        firstMessage: assistantMessage,
-      };
-    } catch (error) {
-      console.error('Create conversation error:', error);
-      throw new Error('Failed to create conversation');
-    }
+    return {
+      conversation,
+      messages,
+    };
   }
 
   async sendMessage(conversationId: string, userId: string, content: string) {
-    try {
-      // Verify conversation belongs to user
-      const conversation = await AIConversation.findOne({
-        where: { id: conversationId, userId: userId }
-      });
+    const conversation = await AIConversation.findOne({
+      where: { id: conversationId, userId },
+    });
 
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
-
-      // Create user message
-      const userMessage = await AIMessage.create({
-        conversationId: conversationId,
-        role: 'user',
-        content,
-        bibleReferences: [],
-        metadata: {},
-      });
-
-      // Get AI response
-      let assistantMessage;
-      try {
-        const aiResponse = await this.callPOEAPI(content);
-        assistantMessage = await AIMessage.create({
-          conversationId: conversationId,
-          role: 'assistant',
-          content: aiResponse.content,
-          bibleReferences: aiResponse.bibleReferences || [],
-          metadata: {},
-        });
-      } catch (aiError) {
-        console.error('POE API error:', aiError);
-        // Fallback response
-        assistantMessage = await AIMessage.create({
-          conversationId: conversationId,
-          role: 'assistant',
-          content: "I apologize, but I'm having trouble connecting right now. However, I'd love to help you explore the Bible. Could you share more about what you're seeking guidance on?",
-          bibleReferences: [],
-          metadata: { fallback: true },
-        });
-      }
-
-      return {
-        userMessage,
-        assistantMessage,
-      };
-    } catch (error) {
-      console.error('Send message error:', error);
-      throw new Error('Failed to send message');
+    if (!conversation) {
+      throw new Error('Conversation not found');
     }
+
+    const userMessage = await AIMessage.create({
+      conversationId,
+      role: MessageRole.USER,
+      content,
+    });
+
+    const history = await AIMessage.findAll({
+      where: { conversationId },
+      order: [['createdAt', 'ASC']],
+      limit: 20,
+    });
+
+    const messages = history
+      .filter(msg => msg.id !== userMessage.id)
+      .map(msg => ({
+        role: msg.role === MessageRole.USER ? 'user' as const : 'assistant' as const,
+        content: msg.content,
+      }));
+
+    messages.push({
+      role: 'user' as const,
+      content,
+    });
+
+    const response = await this.anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages,
+      system: 'You are a helpful Christian AI assistant for the LOGOS platform. Provide biblical wisdom, prayer support, and spiritual guidance while being respectful and compassionate.',
+    });
+
+    const assistantContent = response.content[0].type === 'text' 
+      ? response.content[0].text 
+      : 'I apologize, but I encountered an error generating a response.';
+
+    const assistantMessage = await AIMessage.create({
+      conversationId,
+      role: MessageRole.ASSISTANT,
+      content: assistantContent,
+    });
+
+    return {
+      userMessage,
+      assistantMessage,
+    };
   }
 
-  async getUserConversations(userId: string, page: number, limit: number) {
-    try {
-      const offset = (page - 1) * limit;
+  async getUserConversations(userId: string, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
 
-      const { rows: conversations, count } = await AIConversation.findAndCountAll({
-        where: { userId: userId, isArchived: false },
-        order: [['updatedAt', 'DESC']],
+    const { rows: conversations, count: total } = await AIConversation.findAndCountAll({
+      where: { userId },
+      limit,
+      offset,
+      order: [['updatedAt', 'DESC']],
+    });
+
+    return {
+      conversations,
+      pagination: {
+        total,
+        page,
         limit,
-        offset,
-      });
-
-      return {
-        conversations: await Promise.all(conversations.map(async (conv) => {
-          const lastMessage = await AIMessage.findOne({
-            where: { conversationId: conv.id },
-            order: [['createdAt', 'DESC']],
-          });
-
-          const messageCount = await AIMessage.count({
-            where: { conversationId: conv.id }
-          });
-
-          return {
-            id: conv.id,
-            title: conv.title,
-            lastMessage: lastMessage ? {
-              content: lastMessage.content.substring(0, 100),
-              createdAt: lastMessage.createdAt,
-            } : null,
-            messageCount,
-            createdAt: conv.createdAt,
-            updatedAt: conv.updatedAt,
-          };
-        })),
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / limit),
-          totalConversations: count,
-          limit,
-        },
-      };
-    } catch (error) {
-      console.error('Get conversations error:', error);
-      throw new Error('Failed to get conversations');
-    }
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
-  async getConversationMessages(conversationId: string, userId: string, page: number, limit: number) {
-    try {
-      // Verify conversation belongs to user
-      const conversation = await AIConversation.findOne({
-        where: { id: conversationId, userId: userId }
-      });
+  async getConversationMessages(conversationId: string, userId: string, page: number = 1, limit: number = 50) {
+    const conversation = await AIConversation.findOne({
+      where: { id: conversationId, userId },
+    });
 
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
-
-      const offset = (page - 1) * limit;
-
-      const { rows: messages, count } = await AIMessage.findAndCountAll({
-        where: { conversationId: conversationId },
-        order: [['createdAt', 'ASC']],
-        limit,
-        offset,
-      });
-
-      return {
-        messages,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / limit),
-          totalMessages: count,
-          limit,
-        },
-      };
-    } catch (error) {
-      console.error('Get messages error:', error);
-      throw new Error('Failed to get messages');
+    if (!conversation) {
+      throw new Error('Conversation not found');
     }
+
+    const offset = (page - 1) * limit;
+
+    const { rows: messages, count: total } = await AIMessage.findAndCountAll({
+      where: { conversationId },
+      limit,
+      offset,
+      order: [['createdAt', 'ASC']],
+    });
+
+    return {
+      messages,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async deleteConversation(conversationId: string, userId: string) {
-    try {
-      const conversation = await AIConversation.findOne({
-        where: { id: conversationId, userId: userId }
-      });
+    const conversation = await AIConversation.findOne({
+      where: { id: conversationId, userId },
+    });
 
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
-
-      await conversation.update({ isArchived: true });
-    } catch (error) {
-      console.error('Delete conversation error:', error);
-      throw new Error('Failed to delete conversation');
+    if (!conversation) {
+      throw new Error('Conversation not found');
     }
+
+    await AIMessage.destroy({
+      where: { conversationId },
+    });
+
+    await conversation.destroy();
   }
 
   async quickAsk(question: string) {
-    try {
-      const aiResponse = await this.callPOEAPI(question);
-      return {
-        answer: aiResponse.content,
-        bibleReferences: aiResponse.bibleReferences || [],
-      };
-    } catch (error) {
-      console.error('Quick ask error:', error);
-      return {
-        answer: "The Bible is full of wisdom and guidance. While I'm having trouble connecting right now, I encourage you to explore God's Word directly. Consider starting with John 3:16 or Psalm 23.",
-        bibleReferences: [],
-      };
-    }
-  }
-
-  private async callPOEAPI(message: string) {
-    try {
-      if (!this.poeApiKey) {
-        throw new Error('POE API key not configured');
-      }
-
-      const response = await axios.post(
-        `${this.poeApiUrl}/chat/completions`,
+    const response = await this.anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages: [
         {
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are LOGOS, a helpful Christian AI assistant. Provide biblical guidance and wisdom. When relevant, reference Bible verses.'
-            },
-            {
-              role: 'user',
-              content: message
-            }
-          ],
+          role: 'user',
+          content: question,
         },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.poeApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000,
-        }
-      );
+      ],
+      system: 'You are a helpful Christian AI assistant for the LOGOS platform. Provide biblical wisdom, prayer support, and spiritual guidance while being respectful and compassionate.',
+    });
 
-      return {
-        content: response.data.choices[0].message.content,
-        bibleReferences: this.extractBibleReferences(response.data.choices[0].message.content),
-      };
-    } catch (error: any) {
-      console.error('POE API call error:', error.response?.data || error.message);
-      throw error;
-    }
-  }
+    const answer = response.content[0].type === 'text' 
+      ? response.content[0].text 
+      : 'I apologize, but I encountered an error generating a response.';
 
-  private extractBibleReferences(text: string): any[] {
-    // Simple regex to extract Bible references like "John 3:16"
-    const regex = /(\d?\s?[A-Z][a-z]+)\s+(\d+):(\d+)/g;
-    const references: any[] = [];
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      references.push({
-        book: match[1].trim(),
-        chapter: parseInt(match[2]),
-        verses: [parseInt(match[3])],
-        translation: 'NKJV',
-        text: '',
-      });
-    }
-
-    return references;
+    return {
+      question,
+      answer,
+    };
   }
 }

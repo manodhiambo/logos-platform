@@ -1,8 +1,5 @@
-import PrayerRequest from '../models/PrayerRequest.model';
-import Prayer from '../models/Prayer.model';
-import PrayerResponse from '../models/PrayerResponse.model';
-import User from '../../../database/models/user.model';
-import { sequelize } from '../../../config/database.config';
+import { PrayerRequest, Prayer, User } from '../../../database/models';
+import { PrayerStatus } from '../../../database/models/prayer-request.model';
 
 class PrayerService {
   async createPrayerRequest(userId: string, data: any) {
@@ -13,276 +10,174 @@ class PrayerService {
         description: data.description,
         category: data.category,
         privacyLevel: data.privacyLevel || 'public',
-        status: 'active',
+        status: PrayerStatus.ACTIVE,
         prayerCount: 0,
-        isDeleted: false,
       });
 
       return prayerRequest;
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      throw new Error(`Failed to create prayer request: ${error.message}`);
     }
   }
 
-  async getPrayerRequests(filters: any = {}, page: number = 1, limit: number = 20) {
-    try {
-      const offset = (page - 1) * limit;
-      
-      const whereClause: any = {
-        isDeleted: false,
-      };
+  async getPrayerRequests(filters: any, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+    const where: any = {};
 
-      // Only show public prayers unless filtering by specific user
-      if (!filters.userId) {
-        whereClause.privacyLevel = 'public';
-      }
+    if (filters.category) where.category = filters.category;
+    if (filters.status) where.status = filters.status;
 
-      if (filters.category) {
-        whereClause.category = filters.category;
-      }
-
-      if (filters.status) {
-        whereClause.status = filters.status;
-      }
-
-      if (filters.userId) {
-        whereClause.userId = filters.userId;
-      }
-
-      const { rows: prayerRequests, count } = await PrayerRequest.findAndCountAll({
-        where: whereClause,
-        include: [{
+    const { rows: prayerRequests, count: total } = await PrayerRequest.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
           model: User,
-          as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-        }],
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-      });
-
-      return {
-        prayerRequests,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / limit),
-          totalRequests: count,
-          limit,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
         },
-      };
-    } catch (error) {
-      throw error;
-    }
+      ],
+    });
+
+    return {
+      prayerRequests,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getPrayerRequestById(requestId: string) {
-    try {
-      const prayerRequest = await PrayerRequest.findOne({
-        where: { id: requestId, isDeleted: false },
-        include: [{
+    const prayerRequest = await PrayerRequest.findOne({
+      where: { id: requestId },
+      include: [
+        {
           model: User,
-          as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-        }],
-      });
-
-      return prayerRequest;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async prayForRequest(requestId: string, message: string | undefined, userId: string) {
-    const transaction = await sequelize.transaction();
-    
-    try {
-      const request = await PrayerRequest.findOne({
-        where: { id: requestId, isDeleted: false },
-      });
-
-      if (!request) {
-        throw new Error('Prayer request not found');
-      }
-
-      // Create prayer response
-      const response = await PrayerResponse.create({
-        prayerRequestId: requestId,
-        userId,
-        message: message || 'Praying for you 🙏',
-      }, { transaction });
-
-      // Check if this is user's first prayer for this request
-      const userResponseCount = await PrayerResponse.count({
-        where: { prayerRequestId: requestId, userId }
-      });
-
-      // Only increment count on first prayer
-      if (userResponseCount === 1) {
-        await request.increment('prayerCount', { by: 1, transaction });
-      }
-
-      await transaction.commit();
-
-      return {
-        prayer: response,
-        updatedPrayerCount: request.prayerCount + (userResponseCount === 1 ? 1 : 0),
-      };
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    }
-  }
-
-  async getPrayers(requestId: string, page: number = 1, limit: number = 50) {
-    try {
-      const offset = (page - 1) * limit;
-      
-      const { rows: prayers, count: total } = await PrayerResponse.findAndCountAll({
-        where: { prayerRequestId: requestId },
-        include: [{
-          model: User,
-          as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-        }],
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-      });
-
-      return {
-        prayers,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(total / limit),
-          total,
-          limit,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
         },
-      };
-    } catch (error) {
-      throw error;
-    }
+      ],
+    });
+
+    return prayerRequest;
   }
 
-  async updatePrayerStatus(requestId: string, userId: string, status: string, testimony?: string) {
-    try {
-      const prayerRequest = await PrayerRequest.findOne({
-        where: { id: requestId, userId, isDeleted: false },
-      });
+  async updatePrayerRequest(requestId: string, userId: string, data: any) {
+    const prayerRequest = await PrayerRequest.findOne({
+      where: { id: requestId, userId },
+    });
 
-      if (!prayerRequest) {
-        throw new Error('Prayer request not found or unauthorized');
-      }
-
-      const updateData: any = { status };
-
-      if (status === 'answered') {
-        updateData.isAnswered = true;
-        updateData.answeredAt = new Date();
-        if (testimony) {
-          updateData.testimonyText = testimony;
-        }
-      }
-
-      await prayerRequest.update(updateData);
-      return prayerRequest;
-    } catch (error) {
-      throw error;
+    if (!prayerRequest) {
+      throw new Error('Prayer request not found or you do not have permission to update it');
     }
-  }
 
-  async updatePrayerRequest(requestId: string, userId: string, updateData: any) {
-    try {
-      const prayerRequest = await PrayerRequest.findOne({
-        where: { id: requestId, userId, isDeleted: false },
-      });
-
-      if (!prayerRequest) {
-        throw new Error('Prayer request not found or unauthorized');
-      }
-
-      await prayerRequest.update({
-        title: updateData.title || prayerRequest.title,
-        description: updateData.description || prayerRequest.description,
-        category: updateData.category || prayerRequest.category,
-      });
-
-      return prayerRequest;
-    } catch (error) {
-      throw error;
-    }
+    await prayerRequest.update(data);
+    return prayerRequest;
   }
 
   async deletePrayerRequest(requestId: string, userId: string) {
-    try {
-      const prayerRequest = await PrayerRequest.findOne({
-        where: { id: requestId, userId },
-      });
+    const prayerRequest = await PrayerRequest.findOne({
+      where: { id: requestId, userId },
+    });
 
-      if (!prayerRequest) {
-        throw new Error('Prayer request not found or unauthorized');
-      }
-
-      await prayerRequest.update({ isDeleted: true });
-      return true;
-    } catch (error) {
-      throw error;
+    if (!prayerRequest) {
+      throw new Error('Prayer request not found or you do not have permission to delete it');
     }
+
+    await prayerRequest.destroy();
+  }
+
+  async prayForRequest(requestId: string, message: string, userId: string) {
+    const prayerRequest = await PrayerRequest.findByPk(requestId);
+
+    if (!prayerRequest) {
+      throw new Error('Prayer request not found');
+    }
+
+    const prayer = await Prayer.create({
+      prayerRequestId: requestId,
+      userId,
+      message: message || '',
+    });
+
+    await prayerRequest.increment('prayerCount');
+
+    return {
+      prayer,
+      prayerCount: prayerRequest.prayerCount + 1,
+    };
+  }
+
+  async getPrayers(requestId: string, page: number = 1, limit: number = 50) {
+    const offset = (page - 1) * limit;
+
+    const { rows: prayers, count: total } = await Prayer.findAndCountAll({
+      where: { prayerRequestId: requestId },
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'firstName', 'lastName', 'profilePictureUrl'],
+        },
+      ],
+    });
+
+    return {
+      prayers,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updatePrayerStatus(requestId: string, userId: string, status: string, testimony?: string) {
+    const prayerRequest = await PrayerRequest.findOne({
+      where: { id: requestId, userId },
+    });
+
+    if (!prayerRequest) {
+      throw new Error('Prayer request not found or you do not have permission to update it');
+    }
+
+    const updateData: any = { status };
+    if (status === PrayerStatus.ANSWERED) {
+      updateData.answeredAt = new Date();
+    }
+
+    await prayerRequest.update(updateData);
+    return prayerRequest;
   }
 
   async getMyPrayerRequests(userId: string, page: number = 1, limit: number = 20) {
-    try {
-      const offset = (page - 1) * limit;
-      
-      const { rows: prayerRequests, count } = await PrayerRequest.findAndCountAll({
-        where: { userId, isDeleted: false },
-        order: [['createdAt', 'DESC']],
+    const offset = (page - 1) * limit;
+
+    const { rows: prayerRequests, count: total } = await PrayerRequest.findAndCountAll({
+      where: { userId },
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']],
+    });
+
+    return {
+      prayerRequests,
+      pagination: {
+        total,
+        page,
         limit,
-        offset,
-      });
-
-      return {
-        prayerRequests,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / limit),
-          totalRequests: count,
-          limit,
-        },
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async getUserPrayers(userId: string, page: number = 1, limit: number = 20) {
-    try {
-      const offset = (page - 1) * limit;
-      
-      // Get prayer responses user has made
-      const { rows: responses, count } = await PrayerResponse.findAndCountAll({
-        where: { userId },
-        include: [{
-          model: PrayerRequest,
-          as: 'prayerRequest',
-          attributes: ['id', 'title', 'category', 'status'],
-        }],
-        order: [['createdAt', 'DESC']],
-        limit,
-        offset,
-      });
-
-      return {
-        responses,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(count / limit),
-          totalPrayers: count,
-          limit,
-        },
-      };
-    } catch (error) {
-      throw error;
-    }
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }
 
