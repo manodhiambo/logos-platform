@@ -17,8 +17,8 @@ class PostLikeService {
       
       // Decrement like count
       const post = await Post.findByPk(postId);
-      if (post && post.likesCount > 0) {
-        await post.decrement('likesCount');
+      if (post && post.likeCount > 0) {
+        await post.decrement('likeCount');
       }
       
       return { liked: false };
@@ -32,7 +32,7 @@ class PostLikeService {
       // Increment like count
       const post = await Post.findByPk(postId);
       if (post) {
-        await post.increment('likesCount');
+        await post.increment('likeCount');
       }
       
       return { liked: true };
