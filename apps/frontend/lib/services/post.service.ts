@@ -50,6 +50,11 @@ export interface UpdatePostData {
 }
 
 class PostService {
+  private unwrap(response: any) {
+    // Ensure consistent structure regardless of backend shape
+    return response?.data?.data || response?.data || response;
+  }
+
   async getPosts(params?: { 
     page?: number; 
     limit?: number; 
@@ -57,62 +62,62 @@ class PostService {
     authorId?: string;
   }) {
     const response = await apiClient.get('/posts', { params });
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async getPost(postId: string) {
     const response = await apiClient.get(`/posts/${postId}`);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async createPost(data: CreatePostData) {
     const response = await apiClient.post('/posts', data);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async updatePost(postId: string, data: UpdatePostData) {
     const response = await apiClient.put(`/posts/${postId}`, data);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async deletePost(postId: string) {
     const response = await apiClient.delete(`/posts/${postId}`);
-    return response.data;
+    return this.unwrap(response);
   }
 
   async toggleLike(postId: string) {
     const response = await apiClient.post(`/posts/${postId}/like`);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async togglePin(postId: string) {
     const response = await apiClient.post(`/posts/${postId}/pin`);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async getComments(postId: string) {
     const response = await apiClient.get(`/posts/${postId}/comments`);
-    return response.data.data;
+    return this.unwrap(response);
   }
 
-  async addComment(postId: string, content: string) {
-    const response = await apiClient.post(`/posts/${postId}/comments`, { content });
-    return response.data.data;
+  async addComment(postId: string, content: string, parentCommentId?: string) {
+    const response = await apiClient.post(`/posts/${postId}/comments`, { content, parentCommentId });
+    return this.unwrap(response);
   }
 
   async updateComment(commentId: string, content: string) {
     const response = await apiClient.put(`/posts/comments/${commentId}`, { content });
-    return response.data.data;
+    return this.unwrap(response);
   }
 
   async deleteComment(commentId: string) {
     const response = await apiClient.delete(`/posts/comments/${commentId}`);
-    return response.data;
+    return this.unwrap(response);
   }
 
   async toggleCommentLike(commentId: string) {
     const response = await apiClient.post(`/posts/comments/${commentId}/like`);
-    return response.data.data;
+    return this.unwrap(response);
   }
 }
 
