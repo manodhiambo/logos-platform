@@ -3,38 +3,40 @@ import { sequelize } from '../../../config/database.config';
 
 interface PostAttributes {
   id: string;
-  userId: string;
-  authorId?: string;
+  authorId: string;
   communityId?: string;
   content: string;
-  mediaUrls: any[];
-  postType: string;
-  isPinned: boolean;
-  likeCount: number;
-  commentCount: number;
-  shareCount: number;
-  visibility: string;
-  isDeleted: boolean;
+  mediaUrls?: string[];
+  postType?: string;
+  isPinned?: boolean;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  visibility?: string;
+  isDeleted?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface PostCreationAttributes extends Optional<PostAttributes, 'id' | 'mediaUrls' | 'isPinned' | 'likeCount' | 'commentCount' | 'shareCount' | 'isDeleted' | 'createdAt' | 'updatedAt'> {}
+interface PostCreationAttributes
+  extends Optional<PostAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
 
-class Post extends Model<PostAttributes, PostCreationAttributes> implements PostAttributes {
+class Post
+  extends Model<PostAttributes, PostCreationAttributes>
+  implements PostAttributes
+{
   public id!: string;
-  public userId!: string;
-  public authorId?: string;
+  public authorId!: string;
   public communityId?: string;
   public content!: string;
-  public mediaUrls!: any[];
-  public postType!: string;
-  public isPinned!: boolean;
-  public likeCount!: number;
-  public commentCount!: number;
-  public shareCount!: number;
-  public visibility!: string;
-  public isDeleted!: boolean;
+  public mediaUrls?: string[];
+  public postType?: string;
+  public isPinned?: boolean;
+  public likeCount?: number;
+  public commentCount?: number;
+  public shareCount?: number;
+  public visibility?: string;
+  public isDeleted?: boolean;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -46,15 +48,14 @@ Post.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
-    userId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'user_id',
-    },
     authorId: {
       type: DataTypes.UUID,
-      allowNull: true,
+      allowNull: false,
       field: 'author_id',
+      references: {
+        model: 'users',
+        key: 'id',
+      },
     },
     communityId: {
       type: DataTypes.UUID,
@@ -66,13 +67,13 @@ Post.init(
       allowNull: false,
     },
     mediaUrls: {
-      type: DataTypes.JSONB,
-      defaultValue: [],
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
       field: 'media_urls',
     },
     postType: {
-      type: DataTypes.STRING(20),
-      defaultValue: 'regular',
+      type: DataTypes.STRING,
+      allowNull: true,
       field: 'post_type',
     },
     isPinned: {
@@ -96,7 +97,8 @@ Post.init(
       field: 'share_count',
     },
     visibility: {
-      type: DataTypes.STRING(20),
+      type: DataTypes.STRING,
+      allowNull: true,
       defaultValue: 'public',
     },
     isDeleted: {
