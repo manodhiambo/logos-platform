@@ -10,7 +10,7 @@ interface PostAttributes {
   postType?: string;
   isPinned?: boolean;
   likesCount?: number;
-  commentCount?: number;
+  commentsCount?: number;
   shareCount?: number;
   visibility?: string;
   isDeleted?: boolean;
@@ -18,13 +18,9 @@ interface PostAttributes {
   updatedAt?: Date;
 }
 
-interface PostCreationAttributes
-  extends Optional<PostAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+interface PostCreationAttributes extends Optional<PostAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
 
-class Post
-  extends Model<PostAttributes, PostCreationAttributes>
-  implements PostAttributes
-{
+class Post extends Model<PostAttributes, PostCreationAttributes> implements PostAttributes {
   public id!: string;
   public authorId!: string;
   public communityId?: string;
@@ -33,7 +29,7 @@ class Post
   public postType?: string;
   public isPinned?: boolean;
   public likesCount?: number;
-  public commentCount?: number;
+  public commentsCount?: number;
   public shareCount?: number;
   public visibility?: string;
   public isDeleted?: boolean;
@@ -52,10 +48,6 @@ Post.init(
       type: DataTypes.UUID,
       allowNull: false,
       field: 'author_id',
-      references: {
-        model: 'users',
-        key: 'id',
-      },
     },
     communityId: {
       type: DataTypes.UUID,
@@ -73,54 +65,52 @@ Post.init(
     },
     postType: {
       type: DataTypes.STRING,
-      allowNull: true,
       field: 'post_type',
     },
     isPinned: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
       field: 'is_pinned',
+      defaultValue: false,
     },
     likesCount: {
       type: DataTypes.INTEGER,
+      field: 'likes_count',
       defaultValue: 0,
-      field: 'likes_count', // ✅ FIXED COLUMN NAME
     },
-    commentCount: {
+    commentsCount: {
       type: DataTypes.INTEGER,
+      field: 'comments_count',
       defaultValue: 0,
-      field: 'comment_count',
     },
     shareCount: {
       type: DataTypes.INTEGER,
-      defaultValue: 0,
       field: 'share_count',
+      defaultValue: 0,
     },
     visibility: {
       type: DataTypes.STRING,
-      allowNull: true,
       defaultValue: 'public',
     },
     isDeleted: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
       field: 'is_deleted',
+      defaultValue: false,
     },
     createdAt: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
       field: 'created_at',
+      defaultValue: DataTypes.NOW,
     },
     updatedAt: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
       field: 'updated_at',
+      defaultValue: DataTypes.NOW,
     },
   },
   {
     sequelize,
     tableName: 'posts',
-    timestamps: true,
+    timestamps: false,
     underscored: true,
   }
 );
