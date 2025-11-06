@@ -17,8 +17,8 @@ class PostCommentService {
         isDeleted: false,
       }, { transaction });
 
-      // Increment comment count
-      await Post.increment('commentCount', {
+      // ✅ Increment comments count (fixed field name)
+      await Post.increment('commentsCount', {
         by: 1,
         where: { id: postId },
         transaction
@@ -86,8 +86,8 @@ class PostCommentService {
 
       await comment.update({ isDeleted: true }, { transaction });
 
-      // Decrement comment count
-      await Post.decrement('commentCount', {
+      // ✅ Decrement comments count (fixed field name)
+      await Post.decrement('commentsCount', {
         by: 1,
         where: { id: comment.postId },
         transaction
