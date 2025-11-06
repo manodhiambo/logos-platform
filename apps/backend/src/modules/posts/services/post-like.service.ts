@@ -14,13 +14,13 @@ class PostLikeService {
     if (existingLike) {
       // Unlike
       await existingLike.destroy();
-      
-      // Decrement like count
+
+      // Decrement likes count
       const post = await Post.findByPk(postId);
-      if (post && post.likeCount > 0) {
-        await post.decrement('likeCount');
+      if (post && post.likesCount && post.likesCount > 0) {
+        await post.decrement('likesCount');
       }
-      
+
       return { liked: false };
     } else {
       // Like
@@ -28,13 +28,13 @@ class PostLikeService {
         postId,
         userId,
       });
-      
-      // Increment like count
+
+      // Increment likes count
       const post = await Post.findByPk(postId);
       if (post) {
-        await post.increment('likeCount');
+        await post.increment('likesCount');
       }
-      
+
       return { liked: true };
     }
   }
