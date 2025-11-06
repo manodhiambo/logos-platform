@@ -1,9 +1,10 @@
-import { Like, Post } from '../../../database/models';
+import PostLike from '../models/PostLike.model';
+import Post from '../models/Post.model';
 import { Op } from 'sequelize';
 
 class PostLikeService {
   async toggleLike(postId: string, userId: string) {
-    const existingLike = await Like.findOne({
+    const existingLike = await PostLike.findOne({
       where: {
         postId,
         userId,
@@ -23,7 +24,7 @@ class PostLikeService {
       return { liked: false };
     } else {
       // Like
-      await Like.create({
+      await PostLike.create({
         postId,
         userId,
       });
@@ -39,20 +40,20 @@ class PostLikeService {
   }
 
   async getLikeCount(postId: string) {
-    return await Like.count({
+    return await PostLike.count({
       where: { postId },
     });
   }
 
   async hasUserLiked(postId: string, userId: string) {
-    const like = await Like.findOne({
+    const like = await PostLike.findOne({
       where: { postId, userId },
     });
     return !!like;
   }
 
   async getPostLikes(postId: string) {
-    return await Like.findAll({
+    return await PostLike.findAll({
       where: { postId },
       include: [
         {
