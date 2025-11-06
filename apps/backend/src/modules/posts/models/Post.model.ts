@@ -9,7 +9,7 @@ interface PostAttributes {
   mediaUrls?: string[];
   postType?: string;
   isPinned?: boolean;
-  likeCount?: number;
+  likesCount?: number;
   commentCount?: number;
   shareCount?: number;
   visibility?: string;
@@ -32,7 +32,7 @@ class Post
   public mediaUrls?: string[];
   public postType?: string;
   public isPinned?: boolean;
-  public likeCount?: number;
+  public likesCount?: number;
   public commentCount?: number;
   public shareCount?: number;
   public visibility?: string;
@@ -81,10 +81,10 @@ Post.init(
       defaultValue: false,
       field: 'is_pinned',
     },
-    likeCount: {
+    likesCount: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
-      field: 'like_count',
+      field: 'likes_count', // ✅ FIXED COLUMN NAME
     },
     commentCount: {
       type: DataTypes.INTEGER,
