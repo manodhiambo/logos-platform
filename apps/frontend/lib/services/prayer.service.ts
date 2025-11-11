@@ -61,7 +61,7 @@ class PrayerService {
   }
 
   async getMyPrayerRequests() {
-    const response = await apiClient.get('/prayers/my-requests');
+    const response = await apiClient.get('/prayers/requests/me');
     return response.data.data;
   }
 
@@ -98,6 +98,11 @@ class PrayerService {
   async updateStatus(requestId: string, status: string) {
     const response = await apiClient.put(`/prayers/requests/${requestId}/status`, { status });
     return response.data.data;
+  }
+
+  // Alias for backwards compatibility
+  async getUserPrayers() {
+    return this.getMyPrayerRequests();
   }
 }
 

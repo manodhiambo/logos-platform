@@ -24,6 +24,7 @@ import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
 import friendshipRoutes from './modules/auth/routes/friendship.routes';
 import messageRoutes from './modules/auth/routes/message.routes';
 import groupChatRoutes from './modules/auth/routes/group-chat.routes';
+import adminRoutes from './modules/admin/routes/admin.routes';
 
 const app: Application = express();
 
@@ -81,6 +82,7 @@ app.use('/api/v1/video-calls', videoCallRoutes);
 app.use('/api/v1/friendship', friendshipRoutes);
 app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/groups', groupChatRoutes);
+app.use('/api/v1/admin', adminRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
