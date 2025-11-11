@@ -1,180 +1,167 @@
-import { Request, Response, NextFunction } from 'express';
-import communityService from '../services/community.service';
-import { successResponse, errorResponse } from '../../../shared/utils/response.util';
+import { Request, Response } from 'express';
+import CommunityService from '../services/community.service';
 
-class CommunityController {
-  /**
-   * Create a new community
-   */
-  async createCommunity(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = req.user!.id;
-      const community = await communityService.createCommunity(req.body, userId);
-
-      return successResponse(res, 'Community created successfully', community, 201);
-    } catch (error: any) {
-      next(error);
+export const createCommunity = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const community = await CommunityService.createCommunity(userId, req.body);
+    res.status(201).json({
+      message: 'Community created successfully',
+      data: community,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  /**
-   * Get all communities
-   */
-  async getCommunities(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { category, search, page = 1, limit = 20, mycommunities } = req.query;
-      
-      if (mycommunities === 'true') {
-        const userId = req.user?.id;
-        if (!userId) {
-          return errorResponse(res, 'Authentication required', 401);
-        }
-        const result = await communityService.getUserCommunities(
-          userId,
-          Number(page),
-          Number(limit)
-        );
-        return successResponse(res, 'User communities retrieved successfully', result);
-      }
+export const getCommunities = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const filters = {
+      category: req.query.category,
+      privacyLevel: req.query.privacyLevel,
+      search: req.query.search,
+    };
 
-      const filters = { category, search };
-      const result = await communityService.getCommunities(
-        filters,
-        Number(page),
-        Number(limit)
-      );
+    const result = await CommunityService.getCommunities(filters, page, limit);
+    res.json({
+      message: 'Communities retrieved successfully',
+      data: result.communities,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
 
-      return successResponse(res, 'Communities retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
+export const getCommunityById = async (req: Request, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const userId = req.user?.id;
+
+    const community = await CommunityService.getCommunityById(communityId, userId);
+    res.json({
+      message: 'Community retrieved successfully',
+      data: community,
+    });
+  } catch (error: any) {
+    res.status(404).json({ message: error.message });
+  }
+};
+
+export const joinCommunity = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { communityId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const member = await CommunityService.joinCommunity(communityId, userId);
+    res.status(201).json({
+      message: 'Successfully joined community',
+      data: member,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  /**
-   * Get community by ID
-   */
-  async getCommunityById(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const userId = req.user?.id;
+export const leaveCommunity = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { communityId } = req.params;
 
-      const result = await communityService.getCommunityById(communityId, userId);
-
-      return successResponse(res, 'Community retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    await CommunityService.leaveCommunity(communityId, userId);
+    res.json({ message: 'Successfully left community' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  /**
-   * Update community
-   */
-  async updateCommunity(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const userId = req.user!.id;
+export const getCommunityMembers = async (req: Request, res: Response) => {
+  try {
+    const { communityId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
 
-      const community = await communityService.updateCommunity(
-        communityId,
-        req.body,
-        userId
-      );
+    const result = await CommunityService.getCommunityMembers(communityId, page, limit);
+    res.json({
+      message: 'Members retrieved successfully',
+      data: result.members,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
 
-      return successResponse(res, 'Community updated successfully', community);
-    } catch (error: any) {
-      next(error);
+export const updateCommunity = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { communityId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const community = await CommunityService.updateCommunity(
+      communityId,
+      userId,
+      req.body
+    );
+    res.json({
+      message: 'Community updated successfully',
+      data: community,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  /**
-   * Delete community
-   */
-  async deleteCommunity(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const userId = req.user!.id;
+export const deleteCommunity = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { communityId } = req.params;
 
-      const result = await communityService.deleteCommunity(communityId, userId);
-
-      return successResponse(res, result.message);
-    } catch (error: any) {
-      next(error);
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    await CommunityService.deleteCommunity(communityId, userId);
+    res.json({ message: 'Community deleted successfully' });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  /**
-   * Join community
-   */
-  async joinCommunity(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const userId = req.user!.id;
+export const getMyCommunities = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-      const membership = await communityService.joinCommunity(communityId, userId);
-
-      return successResponse(res, 'Successfully joined the community', membership);
-    } catch (error: any) {
-      next(error);
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
+
+    const result = await CommunityService.getMyCommunities(userId, page, limit);
+    res.json({
+      message: 'Your communities retrieved successfully',
+      data: result.communities,
+      pagination: result.pagination,
+    });
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
   }
-
-  /**
-   * Leave community
-   */
-  async leaveCommunity(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const userId = req.user!.id;
-
-      const result = await communityService.leaveCommunity(communityId, userId);
-
-      return successResponse(res, result.message);
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Get community members
-   */
-  async getCommunityMembers(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId } = req.params;
-      const { page = 1, limit = 50 } = req.query;
-
-      const result = await communityService.getCommunityMembers(
-        communityId,
-        Number(page),
-        Number(limit)
-      );
-
-      return successResponse(res, 'Community members retrieved successfully', result);
-    } catch (error: any) {
-      next(error);
-    }
-  }
-
-  /**
-   * Update member role
-   */
-  async updateMemberRole(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { communityId, memberId } = req.params;
-      const { role } = req.body;
-      const requesterId = req.user!.id;
-
-      const membership = await communityService.updateMemberRole(
-        communityId,
-        memberId,
-        role,
-        requesterId
-      );
-
-      return successResponse(res, 'Member role updated successfully', membership);
-    } catch (error: any) {
-      next(error);
-    }
-  }
-}
-
-export default new CommunityController();
+};

@@ -21,6 +21,8 @@ import bibleRoutes from './modules/bible/routes/bible.routes';
 import notificationRoutes from './modules/notifications/routes/notification.routes';
 import aiRoutes from './modules/ai-assistant/routes/ai.routes';
 import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
+import friendshipRoutes from './modules/auth/routes/friendship.routes';
+import messageRoutes from './modules/auth/routes/message.routes';
 
 const app: Application = express();
 
@@ -75,6 +77,8 @@ app.use('/api/v1/bible', bibleRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/video-calls', videoCallRoutes);
+app.use('/api/v1/friendship', friendshipRoutes);
+app.use('/api/v1/messages', messageRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -94,7 +98,7 @@ const connectDB = async () => {
   try {
     await sequelize.authenticate();
     logger.info('✅ Database connected successfully');
-    
+
     // Sync models in development
     if (config.nodeEnv === 'development') {
       await sequelize.sync({ alter: false });

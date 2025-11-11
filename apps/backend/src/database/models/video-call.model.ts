@@ -1,5 +1,10 @@
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../../config/database.config';
+
+export enum CallType {
+  ONE_ON_ONE = 'one_on_one',
+  GROUP = 'group',
+}
 
 export enum CallStatus {
   SCHEDULED = 'scheduled',
@@ -8,32 +13,62 @@ export enum CallStatus {
   CANCELLED = 'cancelled',
 }
 
-export interface VideoCallAttributes {
+export enum CallPurpose {
+  PRAYER = 'prayer',
+  BIBLE_STUDY = 'bible_study',
+  COUNSELING = 'counseling',
+  COMMUNITY = 'community',
+  MENTORSHIP = 'mentorship',
+  GENERAL = 'general',
+}
+
+interface VideoCallAttributes {
   id: string;
+  channelName: string;
+  createdBy: string; // Changed from hostId to match associations
+  type: CallType;
+  purpose: CallPurpose;
+  status: CallStatus;
   title: string;
   description?: string;
-  scheduledAt: Date;
+  scheduledAt?: Date;
   startedAt?: Date;
   endedAt?: Date;
-  status: CallStatus;
-  meetingLink?: string;
-  createdBy: string;
-  communityId?: string;
+  maxParticipants: number;
+  isRecording: boolean;
+  recordingUrl?: string;
+  relatedTo?: string;
+  relatedType?: string;
+  metadata?: any;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-class VideoCall extends Model<VideoCallAttributes> implements VideoCallAttributes {
+interface VideoCallCreationAttributes
+  extends Optional<VideoCallAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+
+class VideoCall
+  extends Model<VideoCallAttributes, VideoCallCreationAttributes>
+  implements VideoCallAttributes
+{
   public id!: string;
+  public channelName!: string;
+  public createdBy!: string; // Changed from hostId
+  public type!: CallType;
+  public purpose!: CallPurpose;
+  public status!: CallStatus;
   public title!: string;
   public description?: string;
-  public scheduledAt!: Date;
+  public scheduledAt?: Date;
   public startedAt?: Date;
   public endedAt?: Date;
-  public status!: CallStatus;
-  public meetingLink?: string;
-  public createdBy!: string;
-  public communityId?: string;
+  public maxParticipants!: number;
+  public isRecording!: boolean;
+  public recordingUrl?: string;
+  public relatedTo?: string;
+  public relatedType?: string;
+  public metadata?: any;
+
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -45,6 +80,36 @@ VideoCall.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    channelName: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      field: 'channel_name',
+    },
+    createdBy: { // Changed from hostId
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: 'created_by', // Changed from host_id
+      references: {
+        model: 'users',
+        key: 'id',
+      },
+    },
+    type: {
+      type: DataTypes.ENUM(...Object.values(CallType)),
+      allowNull: false,
+      defaultValue: CallType.GROUP,
+    },
+    purpose: {
+      type: DataTypes.ENUM(...Object.values(CallPurpose)),
+      allowNull: false,
+      defaultValue: CallPurpose.GENERAL,
+    },
+    status: {
+      type: DataTypes.ENUM(...Object.values(CallStatus)),
+      allowNull: false,
+      defaultValue: CallStatus.SCHEDULED,
+    },
     title: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -55,7 +120,7 @@ VideoCall.init(
     },
     scheduledAt: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
       field: 'scheduled_at',
     },
     startedAt: {
@@ -68,25 +133,45 @@ VideoCall.init(
       allowNull: true,
       field: 'ended_at',
     },
-    status: {
-      type: DataTypes.ENUM(...Object.values(CallStatus)),
-      defaultValue: CallStatus.SCHEDULED,
+    maxParticipants: {
+      type: DataTypes.INTEGER,
       allowNull: false,
+      defaultValue: 50,
+      field: 'max_participants',
     },
-    meetingLink: {
+    isRecording: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      field: 'is_recording',
+    },
+    recordingUrl: {
       type: DataTypes.STRING,
       allowNull: true,
-      field: 'meeting_link',
+      field: 'recording_url',
     },
-    createdBy: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'created_by',
-    },
-    communityId: {
+    relatedTo: {
       type: DataTypes.UUID,
       allowNull: true,
-      field: 'community_id',
+      field: 'related_to',
+    },
+    relatedType: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      field: 'related_type',
+    },
+    metadata: {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'created_at',
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
   },
   {

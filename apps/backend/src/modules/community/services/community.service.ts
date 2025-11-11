@@ -1,33 +1,41 @@
-import { Community, CommunityMember, User } from '../../../database/models';
+import { Community, CommunityMember, User, Post } from '../../../database/models';
 import { MemberRole } from '../../../database/models/community-member.model';
 import { Op } from 'sequelize';
 
 class CommunityService {
-  async createCommunity(data: any, userId: string) {
-    const community = await Community.create({
-      name: data.name,
-      description: data.description,
-      category: data.category,
-      privacyLevel: data.privacyLevel || 'public',
-      avatarUrl: data.avatarUrl,
-      createdBy: userId,
-      memberCount: 1,
-    });
+  async createCommunity(userId: string, data: any) {
+    try {
+      const community = await Community.create({
+        name: data.name,
+        description: data.description,
+        category: data.category,
+        privacyLevel: data.privacyLevel || 'public',
+        avatarUrl: data.avatarUrl,
+        coverImageUrl: data.coverImageUrl,
+        createdBy: userId,
+        memberCount: 1,
+        isActive: true,
+      });
 
-    await CommunityMember.create({
-      communityId: community.id,
-      userId: userId,
-      role: MemberRole.ADMIN,
-    });
+      // Add creator as admin member
+      await CommunityMember.create({
+        communityId: community.id,
+        userId: userId,
+        role: MemberRole.ADMIN,
+      });
 
-    return this.getCommunityById(community.id, userId);
+      return community;
+    } catch (error: any) {
+      throw new Error(`Failed to create community: ${error.message}`);
+    }
   }
 
   async getCommunities(filters: any, page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
-    const where: any = {};
+    const where: any = { isActive: true };
 
     if (filters.category) where.category = filters.category;
+    if (filters.privacyLevel) where.privacyLevel = filters.privacyLevel;
     if (filters.search) {
       where[Op.or] = [
         { name: { [Op.iLike]: `%${filters.search}%` } },
@@ -61,7 +69,8 @@ class CommunityService {
   }
 
   async getCommunityById(communityId: string, userId?: string) {
-    const community = await Community.findByPk(communityId, {
+    const community = await Community.findOne({
+      where: { id: communityId, isActive: true },
       include: [
         {
           model: User,
@@ -75,69 +84,22 @@ class CommunityService {
       throw new Error('Community not found');
     }
 
-    let membership = null;
+    // Check if user is a member
+    let isMember = false;
+    let userRole = null;
     if (userId) {
-      membership = await CommunityMember.findOne({
-        where: {
-          communityId,
-          userId,
-        },
+      const membership = await CommunityMember.findOne({
+        where: { communityId, userId },
       });
+      isMember = !!membership;
+      userRole = membership?.role || null;
     }
 
     return {
-      community,
-      membership,
-      isMember: !!membership,
-      role: membership?.role || null,
+      ...community.toJSON(),
+      isMember,
+      userRole,
     };
-  }
-
-  async updateCommunity(communityId: string, data: any, userId: string) {
-    const community = await Community.findByPk(communityId);
-
-    if (!community) {
-      throw new Error('Community not found');
-    }
-
-    const membership = await CommunityMember.findOne({
-      where: {
-        communityId,
-        userId,
-        role: { [Op.in]: [MemberRole.ADMIN, MemberRole.MODERATOR] },
-      },
-    });
-
-    if (!membership && community.createdBy !== userId) {
-      throw new Error('You do not have permission to update this community');
-    }
-
-    const allowedUpdates = ['name', 'description', 'category', 'avatarUrl', 'privacyLevel'];
-    const updates: any = {};
-
-    allowedUpdates.forEach(field => {
-      if (data[field] !== undefined) {
-        updates[field] = data[field];
-      }
-    });
-
-    await community.update(updates);
-    return community;
-  }
-
-  async deleteCommunity(communityId: string, userId: string) {
-    const community = await Community.findOne({
-      where: { id: communityId, createdBy: userId },
-    });
-
-    if (!community) {
-      throw new Error('Community not found or you do not have permission to delete it');
-    }
-
-    await CommunityMember.destroy({ where: { communityId } });
-    await community.destroy();
-
-    return { message: 'Community deleted successfully' };
   }
 
   async joinCommunity(communityId: string, userId: string) {
@@ -147,43 +109,59 @@ class CommunityService {
       throw new Error('Community not found');
     }
 
-    const existingMembership = await CommunityMember.findOne({
+    if (!community.isActive) {
+      throw new Error('This community is not active');
+    }
+
+    // Check if already a member
+    const existingMember = await CommunityMember.findOne({
       where: { communityId, userId },
     });
 
-    if (existingMembership) {
+    if (existingMember) {
       throw new Error('You are already a member of this community');
     }
 
-    const membership = await CommunityMember.create({
+    // Check privacy level
+    if (community.privacyLevel === 'private' || community.privacyLevel === 'invite_only') {
+      throw new Error('This community requires an invitation to join');
+    }
+
+    // Add member
+    const member = await CommunityMember.create({
       communityId,
       userId,
       role: MemberRole.MEMBER,
     });
 
+    // Increment member count
     await community.increment('memberCount');
 
-    return membership;
+    return member;
   }
 
   async leaveCommunity(communityId: string, userId: string) {
-    const membership = await CommunityMember.findOne({
-      where: { communityId, userId },
-    });
+    const community = await Community.findByPk(communityId);
 
-    if (!membership) {
-      throw new Error('You are not a member of this community');
+    if (!community) {
+      throw new Error('Community not found');
     }
 
-    const community = await Community.findByPk(communityId);
-    if (community?.createdBy === userId) {
+    // Check if user is the creator
+    if (community.createdBy === userId) {
       throw new Error('Community creator cannot leave. Please transfer ownership or delete the community.');
     }
 
-    await membership.destroy();
-    await community?.decrement('memberCount');
+    const member = await CommunityMember.findOne({
+      where: { communityId, userId },
+    });
 
-    return { message: 'Successfully left the community' };
+    if (!member) {
+      throw new Error('You are not a member of this community');
+    }
+
+    await member.destroy();
+    await community.decrement('memberCount');
   }
 
   async getCommunityMembers(communityId: string, page: number = 1, limit: number = 50) {
@@ -193,15 +171,12 @@ class CommunityService {
       where: { communityId },
       limit,
       offset,
-      order: [
-        ['role', 'ASC'],
-        ['createdAt', 'ASC']
-      ],
+      order: [['joinedAt', 'DESC']],
       include: [
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'fullName', 'avatarUrl', 'role'],
+          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
         },
       ],
     });
@@ -217,45 +192,54 @@ class CommunityService {
     };
   }
 
-  async updateMemberRole(communityId: string, memberId: string, role: string, requesterId: string) {
-    const requesterMembership = await CommunityMember.findOne({
-      where: {
-        communityId,
-        userId: requesterId,
-        role: { [Op.in]: [MemberRole.ADMIN, MemberRole.MODERATOR] },
-      },
-    });
-
+  async updateCommunity(communityId: string, userId: string, data: any) {
     const community = await Community.findByPk(communityId);
 
-    if (!requesterMembership && community?.createdBy !== requesterId) {
-      throw new Error('You do not have permission to update member roles');
+    if (!community) {
+      throw new Error('Community not found');
     }
 
-    const membership = await CommunityMember.findOne({
-      where: { communityId, userId: memberId },
+    // Check if user is admin or creator
+    const member = await CommunityMember.findOne({
+      where: { communityId, userId },
     });
 
-    if (!membership) {
-      throw new Error('Member not found');
+    if (!member || (member.role !== MemberRole.ADMIN && community.createdBy !== userId)) {
+      throw new Error('You do not have permission to update this community');
     }
 
-    await membership.update({ role: role as MemberRole });
-    return membership;
+    await community.update(data);
+    return community;
   }
 
-  async getUserCommunities(userId: string, page: number = 1, limit: number = 20) {
+  async deleteCommunity(communityId: string, userId: string) {
+    const community = await Community.findByPk(communityId);
+
+    if (!community) {
+      throw new Error('Community not found');
+    }
+
+    if (community.createdBy !== userId) {
+      throw new Error('Only the creator can delete this community');
+    }
+
+    // Soft delete - mark as inactive
+    await community.update({ isActive: false });
+  }
+
+  async getMyCommunities(userId: string, page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
 
     const { rows: memberships, count: total } = await CommunityMember.findAndCountAll({
       where: { userId },
       limit,
       offset,
-      order: [['createdAt', 'DESC']],
+      order: [['joinedAt', 'DESC']],
       include: [
         {
           model: Community,
           as: 'community',
+          where: { isActive: true },
           include: [
             {
               model: User,
@@ -270,7 +254,7 @@ class CommunityService {
     const communities = memberships.map((m: any) => ({
       ...m.community.toJSON(),
       userRole: m.role,
-      joinedAt: m.createdAt,
+      joinedAt: m.joinedAt,
     }));
 
     return {
