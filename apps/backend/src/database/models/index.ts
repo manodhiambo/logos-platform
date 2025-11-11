@@ -18,6 +18,10 @@ import Friendship from './friendship.model';
 import Follow from './follow.model';
 import DirectMessage from './direct-message.model';
 import Conversation from './conversation.model';
+import MessageReaction from './message-reaction.model';
+import GroupChat from './group-chat.model';
+import GroupMember from './group-member.model';
+import GroupMessage from './group-message.model';
 
 // ==================== User Associations ====================
 User.hasMany(Community, { foreignKey: 'createdBy', as: 'createdCommunities' });
@@ -34,22 +38,18 @@ User.hasMany(AIConversation, { foreignKey: 'userId', as: 'aiConversations' });
 User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
 User.hasMany(VideoCall, { foreignKey: 'createdBy', as: 'createdVideoCalls' });
 User.hasMany(CallParticipant, { foreignKey: 'userId', as: 'callParticipations' });
-
-// Friendship Associations
 User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'sentFriendRequests' });
 User.hasMany(Friendship, { foreignKey: 'addresseeId', as: 'receivedFriendRequests' });
-
-// Follow Associations
 User.hasMany(Follow, { foreignKey: 'followerId', as: 'following' });
 User.hasMany(Follow, { foreignKey: 'followingId', as: 'followers' });
-
-// Direct Message Associations
 User.hasMany(DirectMessage, { foreignKey: 'senderId', as: 'sentMessages' });
 User.hasMany(DirectMessage, { foreignKey: 'receiverId', as: 'receivedMessages' });
-
-// Conversation Associations
 User.hasMany(Conversation, { foreignKey: 'participant1Id', as: 'conversationsAsParticipant1' });
 User.hasMany(Conversation, { foreignKey: 'participant2Id', as: 'conversationsAsParticipant2' });
+User.hasMany(MessageReaction, { foreignKey: 'userId', as: 'messageReactions' });
+User.hasMany(GroupChat, { foreignKey: 'createdBy', as: 'createdGroups' });
+User.hasMany(GroupMember, { foreignKey: 'userId', as: 'groupMemberships' });
+User.hasMany(GroupMessage, { foreignKey: 'senderId', as: 'groupMessages' });
 
 // ==================== Community Associations ====================
 Community.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
@@ -126,11 +126,28 @@ Follow.belongsTo(User, { foreignKey: 'followingId', as: 'following' });
 // ==================== DirectMessage Associations ====================
 DirectMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 DirectMessage.belongsTo(User, { foreignKey: 'receiverId', as: 'receiver' });
+DirectMessage.hasMany(MessageReaction, { foreignKey: 'messageId', as: 'reactions' });
 
 // ==================== Conversation Associations ====================
 Conversation.belongsTo(User, { foreignKey: 'participant1Id', as: 'participant1' });
 Conversation.belongsTo(User, { foreignKey: 'participant2Id', as: 'participant2' });
-Conversation.hasMany(DirectMessage, { foreignKey: 'senderId', as: 'messages' });
+
+// ==================== MessageReaction Associations ====================
+MessageReaction.belongsTo(DirectMessage, { foreignKey: 'messageId', as: 'message' });
+MessageReaction.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ==================== GroupChat Associations ====================
+GroupChat.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+GroupChat.hasMany(GroupMember, { foreignKey: 'groupId', as: 'members' });
+GroupChat.hasMany(GroupMessage, { foreignKey: 'groupId', as: 'messages' });
+
+// ==================== GroupMember Associations ====================
+GroupMember.belongsTo(GroupChat, { foreignKey: 'groupId', as: 'group' });
+GroupMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+// ==================== GroupMessage Associations ====================
+GroupMessage.belongsTo(GroupChat, { foreignKey: 'groupId', as: 'group' });
+GroupMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 
 export {
   User,
@@ -153,4 +170,8 @@ export {
   Follow,
   DirectMessage,
   Conversation,
+  MessageReaction,
+  GroupChat,
+  GroupMember,
+  GroupMessage,
 };

@@ -14,10 +14,7 @@ interface ConversationAttributes {
 }
 
 interface ConversationCreationAttributes
-  extends Optional
-    ConversationAttributes,
-    'id' | 'unreadCountUser1' | 'unreadCountUser2' | 'createdAt' | 'updatedAt'
-  > {}
+  extends Optional<ConversationAttributes, 'id' | 'unreadCountUser1' | 'unreadCountUser2' | 'createdAt' | 'updatedAt'> {}
 
 class Conversation
   extends Model<ConversationAttributes, ConversationCreationAttributes>

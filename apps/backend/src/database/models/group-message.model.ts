@@ -1,55 +1,52 @@
 import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../../config/database.config';
 
-export enum MessageStatus {
-  SENT = 'sent',
-  DELIVERED = 'delivered',
-  READ = 'read',
-}
-
-interface DirectMessageAttributes {
+interface GroupMessageAttributes {
   id: string;
+  groupId: string;
   senderId: string;
-  receiverId: string;
   content: string;
-  status: MessageStatus;
   attachmentUrl?: string;
   attachmentType?: string;
   isDeleted: boolean;
-  deletedBy?: string;
-  readAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-interface DirectMessageCreationAttributes
-  extends Optional<DirectMessageAttributes, 'id' | 'status' | 'isDeleted' | 'createdAt' | 'updatedAt'> {}
+interface GroupMessageCreationAttributes
+  extends Optional<GroupMessageAttributes, 'id' | 'isDeleted' | 'createdAt' | 'updatedAt'> {}
 
-class DirectMessage
-  extends Model<DirectMessageAttributes, DirectMessageCreationAttributes>
-  implements DirectMessageAttributes
+class GroupMessage
+  extends Model<GroupMessageAttributes, GroupMessageCreationAttributes>
+  implements GroupMessageAttributes
 {
   public id!: string;
+  public groupId!: string;
   public senderId!: string;
-  public receiverId!: string;
   public content!: string;
-  public status!: MessageStatus;
   public attachmentUrl?: string;
   public attachmentType?: string;
   public isDeleted!: boolean;
-  public deletedBy?: string;
-  public readAt?: Date;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
 
-DirectMessage.init(
+GroupMessage.init(
   {
     id: {
       type: DataTypes.UUID,
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
+    },
+    groupId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      field: 'group_id',
+      references: {
+        model: 'group_chats',
+        key: 'id',
+      },
     },
     senderId: {
       type: DataTypes.UUID,
@@ -60,23 +57,9 @@ DirectMessage.init(
         key: 'id',
       },
     },
-    receiverId: {
-      type: DataTypes.UUID,
-      allowNull: false,
-      field: 'receiver_id',
-      references: {
-        model: 'users',
-        key: 'id',
-      },
-    },
     content: {
       type: DataTypes.TEXT,
       allowNull: false,
-    },
-    status: {
-      type: DataTypes.ENUM(...Object.values(MessageStatus)),
-      allowNull: false,
-      defaultValue: MessageStatus.SENT,
     },
     attachmentUrl: {
       type: DataTypes.STRING(500),
@@ -93,16 +76,6 @@ DirectMessage.init(
       defaultValue: false,
       field: 'is_deleted',
     },
-    deletedBy: {
-      type: DataTypes.UUID,
-      allowNull: true,
-      field: 'deleted_by',
-    },
-    readAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      field: 'read_at',
-    },
     createdAt: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -116,16 +89,15 @@ DirectMessage.init(
   },
   {
     sequelize,
-    tableName: 'direct_messages',
+    tableName: 'group_messages',
     timestamps: true,
     underscored: true,
     indexes: [
+      { fields: ['group_id'] },
       { fields: ['sender_id'] },
-      { fields: ['receiver_id'] },
       { fields: ['created_at'] },
-      { fields: ['sender_id', 'receiver_id'] },
     ],
   }
 );
 
-export default DirectMessage;
+export default GroupMessage;

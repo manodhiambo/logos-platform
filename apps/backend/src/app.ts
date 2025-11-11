@@ -23,6 +23,7 @@ import aiRoutes from './modules/ai-assistant/routes/ai.routes';
 import videoCallRoutes from './modules/video-calls/routes/video-call.routes';
 import friendshipRoutes from './modules/auth/routes/friendship.routes';
 import messageRoutes from './modules/auth/routes/message.routes';
+import groupChatRoutes from './modules/auth/routes/group-chat.routes';
 
 const app: Application = express();
 
@@ -79,6 +80,7 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/video-calls', videoCallRoutes);
 app.use('/api/v1/friendship', friendshipRoutes);
 app.use('/api/v1/messages', messageRoutes);
+app.use('/api/v1/groups', groupChatRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -1,6 +1,7 @@
 import { Friendship, User, Follow } from '../../../database/models';
 import { FriendshipStatus } from '../../../database/models/friendship.model';
 import { Op } from 'sequelize';
+import NotificationService from '../../../services/notification.service';
 
 class FriendshipService {
   // Send friend request
@@ -9,7 +10,6 @@ class FriendshipService {
       throw new Error('You cannot send a friend request to yourself');
     }
 
-    // Check if friendship already exists
     const existingFriendship = await Friendship.findOne({
       where: {
         [Op.or]: [
@@ -37,6 +37,29 @@ class FriendshipService {
       status: FriendshipStatus.PENDING,
     });
 
+    // Get requester info and notify
+    const requester = await User.findByPk(requesterId);
+    if (requester) {
+      await NotificationService.notifyFriendRequest(
+        requesterId,
+        addresseeId,
+        requester.fullName
+      );
+    }
+
+    // Emit socket event
+    const io = (global as any).io;
+    if (io) {
+      io.to(`user:${addresseeId}`).emit('friend-request:new', {
+        friendship,
+        requester: {
+          id: requester?.id,
+          fullName: requester?.fullName,
+          avatarUrl: requester?.avatarUrl,
+        },
+      });
+    }
+
     return friendship;
   }
 
@@ -58,6 +81,29 @@ class FriendshipService {
 
     friendship.status = FriendshipStatus.ACCEPTED;
     await friendship.save();
+
+    // Get accepter info and notify requester
+    const accepter = await User.findByPk(userId);
+    if (accepter) {
+      await NotificationService.notifyFriendAccepted(
+        userId,
+        friendship.requesterId,
+        accepter.fullName
+      );
+    }
+
+    // Emit socket event
+    const io = (global as any).io;
+    if (io) {
+      io.to(`user:${friendship.requesterId}`).emit('friend-request:accepted', {
+        friendship,
+        accepter: {
+          id: accepter?.id,
+          fullName: accepter?.fullName,
+          avatarUrl: accepter?.avatarUrl,
+        },
+      });
+    }
 
     return friendship;
   }
@@ -121,7 +167,6 @@ class FriendshipService {
       order: [['createdAt', 'DESC']],
     });
 
-    // Map to return the other user (friend)
     const friends = friendships.map((friendship: any) => {
       const friend =
         friendship.requesterId === userId
@@ -237,7 +282,6 @@ class FriendshipService {
       throw new Error('You cannot follow yourself');
     }
 
-    // Check if already following
     const existingFollow = await Follow.findOne({
       where: { followerId, followingId },
     });
@@ -250,6 +294,28 @@ class FriendshipService {
       followerId,
       followingId,
     });
+
+    // Get follower info and notify
+    const follower = await User.findByPk(followerId);
+    if (follower) {
+      await NotificationService.notifyNewFollower(
+        followerId,
+        followingId,
+        follower.fullName
+      );
+    }
+
+    // Emit socket event
+    const io = (global as any).io;
+    if (io) {
+      io.to(`user:${followingId}`).emit('follow:new', {
+        follower: {
+          id: follower?.id,
+          fullName: follower?.fullName,
+          avatarUrl: follower?.avatarUrl,
+        },
+      });
+    }
 
     return follow;
   }
@@ -355,7 +421,7 @@ class FriendshipService {
         [Op.and]: [
           {
             id: {
-              [Op.ne]: currentUserId, // Exclude current user
+              [Op.ne]: currentUserId,
             },
           },
           {
