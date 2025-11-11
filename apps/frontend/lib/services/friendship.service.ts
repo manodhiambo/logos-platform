@@ -42,7 +42,7 @@ export interface UserSearchResult {
 class FriendshipService {
   // Send friend request
   async sendFriendRequest(addresseeId: string) {
-    const response = await apiClient.post('/api/friendship/friend-request', {
+    const response = await apiClient.post('/friendship/friend-request', {
       addresseeId,
     });
     return response.data;
@@ -51,7 +51,7 @@ class FriendshipService {
   // Accept friend request
   async acceptFriendRequest(friendshipId: string) {
     const response = await apiClient.put(
-      `/api/friendship/friend-request/${friendshipId}/accept`
+      `/friendship/friend-request/${friendshipId}/accept`
     );
     return response.data;
   }
@@ -59,20 +59,20 @@ class FriendshipService {
   // Reject friend request
   async rejectFriendRequest(friendshipId: string) {
     const response = await apiClient.put(
-      `/api/friendship/friend-request/${friendshipId}/reject`
+      `/friendship/friend-request/${friendshipId}/reject`
     );
     return response.data;
   }
 
   // Remove friend
   async removeFriend(friendshipId: string) {
-    const response = await apiClient.delete(`/api/friendship/friend/${friendshipId}`);
+    const response = await apiClient.delete(`/friendship/friend/${friendshipId}`);
     return response.data;
   }
 
   // Get all friends
   async getFriends(page: number = 1, limit: number = 20) {
-    const response = await apiClient.get('/api/friendship/friends', {
+    const response = await apiClient.get('/friendship/friends', {
       params: { page, limit },
     });
     return response.data;
@@ -80,7 +80,7 @@ class FriendshipService {
 
   // Get pending friend requests (received)
   async getPendingRequests(page: number = 1, limit: number = 20) {
-    const response = await apiClient.get('/api/friendship/friend-requests/pending', {
+    const response = await apiClient.get('/friendship/friend-requests/pending', {
       params: { page, limit },
     });
     return response.data;
@@ -88,7 +88,7 @@ class FriendshipService {
 
   // Get sent friend requests
   async getSentRequests(page: number = 1, limit: number = 20) {
-    const response = await apiClient.get('/api/friendship/friend-requests/sent', {
+    const response = await apiClient.get('/friendship/friend-requests/sent', {
       params: { page, limit },
     });
     return response.data;
@@ -97,26 +97,26 @@ class FriendshipService {
   // Check friendship status
   async checkFriendshipStatus(otherUserId: string): Promise<FriendshipStatus> {
     const response = await apiClient.get(
-      `/api/friendship/friendship-status/${otherUserId}`
+      `/friendship/friendship-status/${otherUserId}`
     );
     return response.data.data;
   }
 
   // Follow user
   async followUser(userId: string) {
-    const response = await apiClient.post('/api/friendship/follow', { userId });
+    const response = await apiClient.post('/friendship/follow', { userId });
     return response.data;
   }
 
   // Unfollow user
   async unfollowUser(userId: string) {
-    const response = await apiClient.delete(`/api/friendship/follow/${userId}`);
+    const response = await apiClient.delete(`/friendship/follow/${userId}`);
     return response.data;
   }
 
   // Get followers
   async getFollowers(userId: string, page: number = 1, limit: number = 20) {
-    const response = await apiClient.get(`/api/friendship/followers/${userId}`, {
+    const response = await apiClient.get(`/friendship/followers/${userId}`, {
       params: { page, limit },
     });
     return response.data;
@@ -124,7 +124,7 @@ class FriendshipService {
 
   // Get following
   async getFollowing(userId: string, page: number = 1, limit: number = 20) {
-    const response = await apiClient.get(`/api/friendship/following/${userId}`, {
+    const response = await apiClient.get(`/friendship/following/${userId}`, {
       params: { page, limit },
     });
     return response.data;
@@ -132,13 +132,13 @@ class FriendshipService {
 
   // Check if following
   async isFollowing(userId: string) {
-    const response = await apiClient.get(`/api/friendship/is-following/${userId}`);
+    const response = await apiClient.get(`/friendship/is-following/${userId}`);
     return response.data.data.isFollowing;
   }
 
   // Search users
   async searchUsers(query: string, page: number = 1, limit: number = 20) {
-    const response = await apiClient.get('/api/friendship/users/search', {
+    const response = await apiClient.get('/friendship/users/search', {
       params: { query, page, limit },
     });
     return response.data;

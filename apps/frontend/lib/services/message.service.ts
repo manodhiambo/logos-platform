@@ -44,7 +44,7 @@ class MessageService {
     attachmentUrl?: string,
     attachmentType?: string
   ) {
-    const response = await apiClient.post('/api/messages/send', {
+    const response = await apiClient.post('/messages/send', {
       receiverId,
       content,
       attachmentUrl,
@@ -55,7 +55,7 @@ class MessageService {
 
   // Get messages with a specific user
   async getMessages(otherUserId: string, page: number = 1, limit: number = 50) {
-    const response = await apiClient.get(`/api/messages/conversation/${otherUserId}`, {
+    const response = await apiClient.get(`/messages/conversation/${otherUserId}`, {
       params: { page, limit },
     });
     return response.data;
@@ -63,7 +63,7 @@ class MessageService {
 
   // Get all conversations
   async getConversations(page: number = 1, limit: number = 20) {
-    const response = await apiClient.get('/api/messages/conversations', {
+    const response = await apiClient.get('/messages/conversations', {
       params: { page, limit },
     });
     return response.data;
@@ -71,20 +71,20 @@ class MessageService {
 
   // Delete a message
   async deleteMessage(messageId: string) {
-    const response = await apiClient.delete(`/api/messages/${messageId}`);
+    const response = await apiClient.delete(`/messages/${messageId}`);
     return response.data;
   }
 
   // Mark messages as read
   async markAsRead(senderId: string) {
-    const response = await apiClient.put(`/api/messages/read/${senderId}`);
+    const response = await apiClient.put(`/messages/read/${senderId}`);
     return response.data;
   }
 
   // Get unread message count
   async getUnreadCount() {
-    const response = await apiClient.get('/api/messages/unread-count');
-    return response.data.data.count;
+    const response = await apiClient.get('/messages/unread-count');
+    return response.data;
   }
 }
 
