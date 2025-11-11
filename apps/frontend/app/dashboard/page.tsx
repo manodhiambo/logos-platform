@@ -14,7 +14,6 @@ import {
   communityService,
   devotionalService,
   adminService,
-  userService,
 } from '@/lib/services';
 
 interface DashboardStats {
@@ -76,38 +75,76 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      // Load user stats
+      // Load basic data that usually works
       const [
-        friendsData,
-        followersData,
-        followingData,
-        unreadCount,
-        pendingRequests,
-        myPrayersData,
         communitiesData,
+        myPrayersData,
         devotionData,
-        conversationsData,
         devotionalStats,
       ] = await Promise.all([
-        friendshipService.getFriends().catch(() => ({ data: [] })),
-        friendshipService.getFollowers(user?.id || '').catch(() => ({ data: [] })),
-        friendshipService.getFollowing(user?.id || '').catch(() => ({ data: [] })),
-        messageService.getUnreadCount().catch(() => 0),
-        friendshipService.getPendingRequests().catch(() => ({ data: [] })),
-        prayerService.getMyPrayerRequests().catch(() => []),
         communityService.getMyCommunities().catch(() => []),
+        prayerService.getMyPrayerRequests().catch(() => []),
         devotionalService.getTodaysDevotional().catch(() => null),
-        messageService.getConversations().catch(() => ({ data: [] })),
         devotionalService.getUserStats().catch(() => ({ currentStreak: 0 })),
       ]);
 
+      // Load friendship data separately to handle errors gracefully
+      let friendsCount = 0;
+      let followersCount = 0;
+      let followingCount = 0;
+      let pendingCount = 0;
+      let unreadMsgCount = 0;
+      let conversations: any[] = [];
+
+      try {
+        const friendsData = await friendshipService.getFriends();
+        friendsCount = friendsData.data?.length || 0;
+      } catch (error) {
+        console.log('Could not load friends:', error);
+      }
+
+      try {
+        const followersData = await friendshipService.getFollowers(user?.id || '');
+        followersCount = followersData.data?.length || 0;
+      } catch (error) {
+        console.log('Could not load followers:', error);
+      }
+
+      try {
+        const followingData = await friendshipService.getFollowing(user?.id || '');
+        followingCount = followingData.data?.length || 0;
+      } catch (error) {
+        console.log('Could not load following:', error);
+      }
+
+      try {
+        const pendingRequests = await friendshipService.getPendingRequests();
+        pendingCount = pendingRequests.data?.length || 0;
+      } catch (error) {
+        console.log('Could not load pending requests:', error);
+      }
+
+      try {
+        const unreadCount = await messageService.getUnreadCount();
+        unreadMsgCount = typeof unreadCount === 'number' ? unreadCount : (unreadCount.data?.count || 0);
+      } catch (error) {
+        console.log('Could not load unread count:', error);
+      }
+
+      try {
+        const conversationsData = await messageService.getConversations();
+        conversations = conversationsData.data?.slice(0, 5) || [];
+      } catch (error) {
+        console.log('Could not load conversations:', error);
+      }
+
       // Update stats
       setStats({
-        totalFriends: friendsData.data?.length || 0,
-        totalFollowers: followersData.data?.length || 0,
-        totalFollowing: followingData.data?.length || 0,
-        unreadMessages: typeof unreadCount === 'number' ? unreadCount : 0,
-        pendingFriendRequests: pendingRequests.data?.length || 0,
+        totalFriends: friendsCount,
+        totalFollowers: followersCount,
+        totalFollowing: followingCount,
+        unreadMessages: unreadMsgCount,
+        pendingFriendRequests: pendingCount,
         activePrayers: Array.isArray(myPrayersData) 
           ? myPrayersData.filter((p: any) => p.status === 'open' || p.status === 'in_progress').length 
           : 0,
@@ -120,7 +157,7 @@ export default function DashboardPage() {
 
       setTodaysDevotion(devotionData);
       setRecentPrayers(Array.isArray(myPrayersData) ? myPrayersData.slice(0, 5) : []);
-      setRecentMessages(conversationsData.data?.slice(0, 5) || []);
+      setRecentMessages(conversations);
 
       // Load admin stats if user is admin
       if (isAdmin) {
@@ -132,15 +169,15 @@ export default function DashboardPage() {
         }
       }
 
-      // Load suggested users (random users to connect with)
+      // Load suggested users - search with 'a' to get results
       try {
-        const usersData = await friendshipService.searchUsers('');
+        const usersData = await friendshipService.searchUsers('a'); // Search with 'a' instead of empty
         const randomUsers = (usersData.data || [])
           .sort(() => 0.5 - Math.random())
           .slice(0, 6);
         setSuggestedUsers(randomUsers);
       } catch (error) {
-        console.error('Error loading suggested users:', error);
+        console.log('Could not load suggested users:', error);
       }
 
     } catch (error) {
@@ -382,6 +419,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* Rest of the dashboard remains the same... */}
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Today's Devotion */}
