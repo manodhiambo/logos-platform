@@ -75,7 +75,6 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      // Load basic data that usually works
       const [
         communitiesData,
         myPrayersData,
@@ -88,7 +87,6 @@ export default function DashboardPage() {
         devotionalService.getUserStats().catch(() => ({ currentStreak: 0 })),
       ]);
 
-      // Load friendship data separately to handle errors gracefully
       let friendsCount = 0;
       let followersCount = 0;
       let followingCount = 0;
@@ -138,7 +136,6 @@ export default function DashboardPage() {
         console.log('Could not load conversations:', error);
       }
 
-      // Update stats
       setStats({
         totalFriends: friendsCount,
         totalFollowers: followersCount,
@@ -159,7 +156,6 @@ export default function DashboardPage() {
       setRecentPrayers(Array.isArray(myPrayersData) ? myPrayersData.slice(0, 5) : []);
       setRecentMessages(conversations);
 
-      // Load admin stats if user is admin
       if (isAdmin) {
         try {
           const systemStats = await adminService.getSystemStats();
@@ -169,10 +165,10 @@ export default function DashboardPage() {
         }
       }
 
-      // Load suggested users - search with 'a' to get results
       try {
-        const usersData = await friendshipService.searchUsers('a'); // Search with 'a' instead of empty
+        const usersData = await friendshipService.searchUsers('a');
         const randomUsers = (usersData.data || [])
+          .filter((u: any) => u.id !== user?.id)
           .sort(() => 0.5 - Math.random())
           .slice(0, 6);
         setSuggestedUsers(randomUsers);
@@ -189,11 +185,23 @@ export default function DashboardPage() {
 
   const handleSendFriendRequest = async (userId: string) => {
     try {
-      await friendshipService.sendFriendRequest(userId);
+      console.log('Sending friend request to user ID:', userId);
+      console.log('Current user ID:', user?.id);
+      
+      const response = await friendshipService.sendFriendRequest(userId);
+      console.log('Friend request response:', response);
+      
       alert('Friend request sent! 🎉');
-      loadDashboardData(); // Refresh
+      loadDashboardData();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to send friend request');
+      console.error('=== FRIEND REQUEST ERROR ===');
+      console.error('Full error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      console.error('Error message:', error.response?.data?.message);
+      
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to send friend request';
+      alert(`Error: ${errorMsg}`);
     }
   };
 
@@ -278,7 +286,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl p-8 text-white shadow-lg">
         <h1 className="text-3xl font-bold mb-2">
           {getGreeting()}, {user?.fullName}! ✨
@@ -311,7 +318,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Admin Dashboard - Only visible to admins */}
       {isAdmin && adminStats && (
         <Card className="p-6 bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200">
           <div className="flex items-center justify-between mb-4">
@@ -355,7 +361,6 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Quick Actions Grid */}
       <div>
         <h2 className="text-xl font-semibold text-slate-800 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -376,7 +381,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Discover Users Section */}
       {suggestedUsers.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -407,7 +411,11 @@ export default function DashboardPage() {
                     <Button 
                       size="sm" 
                       className="mt-2 w-full"
-                      onClick={() => handleSendFriendRequest(suggestedUser.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSendFriendRequest(suggestedUser.id);
+                      }}
                     >
                       👥 Add Friend
                     </Button>
@@ -419,10 +427,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Rest of the dashboard remains the same... */}
-      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Devotion */}
         <Card className="lg:col-span-2 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
@@ -457,7 +462,6 @@ export default function DashboardPage() {
           )}
         </Card>
 
-        {/* Social Stats */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-slate-800 mb-4">Your Network</h2>
           <div className="space-y-4">
@@ -509,9 +513,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Recent Activity Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Prayer Requests */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
@@ -553,7 +555,6 @@ export default function DashboardPage() {
           )}
         </Card>
 
-        {/* Recent Messages */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
@@ -614,7 +615,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Communities Section */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
@@ -643,7 +643,6 @@ export default function DashboardPage() {
         )}
       </Card>
 
-      {/* Bible Study Prompt */}
       <Card className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200">
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="text-5xl">📕</div>
