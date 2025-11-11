@@ -1,19 +1,36 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import messageService, { Message } from '@/lib/services/message.service';
+import messageService from '@/lib/services/message.service';
+import { useRouter, useParams } from 'next/navigation';
 import { useSocket } from '@/contexts/SocketContext';
-import { Send, Phone, Video, Smile } from 'lucide-react';
-import { format } from 'date-fns';
 
-const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  status: 'sent' | 'delivered' | 'read';
+  isDeleted: boolean;
+  createdAt: string;
+  sender: {
+    id: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+  receiver: {
+    id: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+}
 
-export default function ChatPage({ params }: { params: { userId: string } }) {
+export default function ChatPage() {
+  const params = useParams();
+  const otherUserId = params.userId as string;
+  
+  const router = useRouter();
+  const { isConnected, sendTypingIndicator } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -22,79 +39,60 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
-  const { socket, sendTypingIndicator, reactToMessage } = useSocket();
-  const { userId: otherUserId } = params;
 
   useEffect(() => {
+    if (!otherUserId) return;
+    
     loadMessages();
-    messageService.markAsRead(otherUserId);
 
-    // Socket listeners
-    if (socket) {
-      socket.on('message:new', (message: Message) => {
-        if (message.senderId === otherUserId) {
-          setMessages((prev) => [...prev, message]);
-          messageService.markAsRead(otherUserId);
-        }
-      });
-
-      socket.on('message:sent', (message: Message) => {
-        if (message.receiverId === otherUserId) {
-          setMessages((prev) => [...prev, message]);
-        }
-      });
-
-      socket.on('user:typing', (data: { userId: string; isTyping: boolean }) => {
-        if (data.userId === otherUserId) {
-          setOtherUserTyping(data.isTyping);
-        }
-      });
-
-      socket.on('message:reaction-added', (data: any) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === data.messageId
-              ? { ...msg, reactions: [...(msg.reactions || []), data] }
-              : msg
-          )
-        );
-      });
-
-      socket.on('message:reaction-removed', (data: any) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === data.messageId
-              ? {
-                  ...msg,
-                  reactions: (msg.reactions || []).filter(
-                    (r: any) => !(r.userId === data.userId && r.reaction === data.reaction)
-                  ),
-                }
-              : msg
-          )
-        );
-      });
-
-      socket.on('message:deleted', (data: { messageId: string }) => {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === data.messageId ? { ...msg, isDeleted: true } : msg
-          )
-        );
-      });
-    }
-
-    return () => {
-      if (socket) {
-        socket.off('message:new');
-        socket.off('message:sent');
-        socket.off('user:typing');
-        socket.off('message:reaction-added');
-        socket.off('message:reaction-removed');
-        socket.off('message:deleted');
+    // Listen for socket events
+    const handleNewMessage = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const message = customEvent.detail;
+      if (message.senderId === otherUserId) {
+        setMessages((prev) => [...prev, message]);
+        messageService.markAsRead(otherUserId);
       }
     };
-  }, [socket, otherUserId]);
+
+    const handleMessageSent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const message = customEvent.detail;
+      if (message.receiverId === otherUserId) {
+        setMessages((prev) => [...prev, message]);
+      }
+    };
+
+    const handleUserTyping = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
+      if (data.userId === otherUserId) {
+        setOtherUserTyping(data.isTyping);
+      }
+    };
+
+    const handleMessagesRead = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const data = customEvent.detail;
+      setMessages((prev) =>
+        prev.map((msg) =>
+          data.messageIds.includes(msg.id) ? { ...msg, status: 'read' as const } : msg
+        )
+      );
+    };
+
+    window.addEventListener('socket:message:new', handleNewMessage);
+    window.addEventListener('socket:message:sent', handleMessageSent);
+    window.addEventListener('socket:user:typing', handleUserTyping);
+    window.addEventListener('socket:messages:read', handleMessagesRead);
+
+    return () => {
+      window.removeEventListener('socket:message:new', handleNewMessage);
+      window.removeEventListener('socket:message:sent', handleMessageSent);
+      window.removeEventListener('socket:user:typing', handleUserTyping);
+      window.removeEventListener('socket:messages:read', handleMessagesRead);
+    };
+  }, [otherUserId]);
 
   useEffect(() => {
     scrollToBottom();
@@ -105,6 +103,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
       setLoading(true);
       const response = await messageService.getMessages(otherUserId);
       setMessages(response.data);
+      await messageService.markAsRead(otherUserId);
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -120,7 +119,7 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     setNewMessage(e.target.value);
 
     // Send typing indicator
-    if (!isTyping) {
+    if (!isTyping && isConnected) {
       setIsTyping(true);
       sendTypingIndicator(otherUserId, true);
     }
@@ -133,7 +132,9 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     // Set new timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      sendTypingIndicator(otherUserId, false);
+      if (isConnected) {
+        sendTypingIndicator(otherUserId, false);
+      }
     }, 1000);
   };
 
@@ -146,7 +147,9 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
       await messageService.sendMessage(otherUserId, newMessage);
       setNewMessage('');
       setIsTyping(false);
-      sendTypingIndicator(otherUserId, false);
+      if (isConnected) {
+        sendTypingIndicator(otherUserId, false);
+      }
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to send message');
     } finally {
@@ -154,42 +157,57 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
     }
   };
 
-  const handleReaction = (messageId: string, reaction: string) => {
-    reactToMessage(messageId, reaction);
-  };
-
-  const handleDeleteMessage = async (messageId: string) => {
-    try {
-      await messageService.deleteMessage(messageId);
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to delete message');
-    }
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
   };
 
   if (loading) {
-    return <div className="p-4">Loading messages...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading messages...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4 h-[calc(100vh-100px)]">
-      <Card className="h-full flex flex-col">
-        <CardHeader className="border-b">
-          <div className="flex items-center justify-between">
-            <CardTitle>Chat</CardTitle>
-            <div className="flex space-x-2">
-              <Button variant="outline" size="icon">
-                <Phone className="w-4 h-4" />
-              </Button>
-              <Button variant="outline" size="icon">
-                <Video className="w-4 h-4" />
-              </Button>
-            </div>
+    <div className="flex flex-col h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b px-4 py-3 shadow-sm">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <button
+            onClick={() => router.back()}
+            className="text-gray-600 hover:text-gray-900"
+          >
+            ← Back
+          </button>
+          <div className="text-center">
+            <h1 className="text-lg font-semibold">Chat</h1>
+            {isConnected ? (
+              <span className="text-xs text-green-500">● Connected</span>
+            ) : (
+              <span className="text-xs text-gray-400">○ Connecting...</span>
+            )}
           </div>
-        </CardHeader>
+          <div className="w-16"></div>
+        </div>
+      </div>
 
-        <CardContent className="flex-1 flex flex-col overflow-hidden p-4">
-          <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-            {messages.map((message) => (
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-6 max-w-4xl mx-auto w-full">
+        <div className="space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              No messages yet. Start the conversation!
+            </div>
+          ) : (
+            messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${
@@ -203,93 +221,86 @@ export default function ChatPage({ params }: { params: { userId: string } }) {
                       : 'flex-row-reverse space-x-reverse'
                   }`}
                 >
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={message.sender.avatarUrl} />
-                    <AvatarFallback>
-                      {message.sender.fullName.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Avatar */}
+                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                    {message.sender.avatarUrl ? (
+                      <img
+                        src={message.sender.avatarUrl}
+                        alt={message.sender.fullName}
+                        className="w-full h-full rounded-full"
+                      />
+                    ) : (
+                      <span className="text-sm font-semibold">
+                        {message.sender.fullName.charAt(0)}
+                      </span>
+                    )}
+                  </div>
 
-                  <div className="group relative">
+                  {/* Message */}
+                  <div>
                     {message.isDeleted ? (
-                      <div className="rounded-lg px-4 py-2 bg-muted text-muted-foreground italic">
+                      <div className="rounded-lg px-4 py-2 bg-gray-200 text-gray-500 italic">
                         This message was deleted
                       </div>
                     ) : (
-                      <>
-                        <div
-                          className={`rounded-lg px-4 py-2 ${
-                            message.senderId === otherUserId
-                              ? 'bg-muted'
-                              : 'bg-primary text-primary-foreground'
-                          }`}
-                        >
-                          <p>{message.content}</p>
-                        </div>
-
-                        {/* Reaction overlay */}
-                        <div className="absolute -bottom-2 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="bg-white dark:bg-gray-800 rounded-full shadow-lg px-2 py-1 flex space-x-1">
-                            {EMOJI_REACTIONS.map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReaction(message.id, emoji)}
-                                className="hover:scale-125 transition-transform"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Show reactions */}
-                        {message.reactions && message.reactions.length > 0 && (
-                          <div className="flex space-x-1 mt-1">
-                            {message.reactions.map((r: any, idx: number) => (
-                              <span key={idx} className="text-sm">
-                                {r.reaction}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </>
+                      <div
+                        className={`rounded-lg px-4 py-2 ${
+                          message.senderId === otherUserId
+                            ? 'bg-gray-200 text-gray-900'
+                            : 'bg-blue-500 text-white'
+                        }`}
+                      >
+                        <p className="break-words">{message.content}</p>
+                      </div>
                     )}
-
-                    <span className="text-xs text-muted-foreground mt-1 block">
-                      {format(new Date(message.createdAt), 'HH:mm')}
-                      {message.status === 'read' && (
+                    <span className="text-xs text-gray-500 mt-1 block px-1">
+                      {formatTime(message.createdAt)}
+                      {message.status === 'read' && message.senderId !== otherUserId && (
                         <span className="ml-1">✓✓</span>
                       )}
                     </span>
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+          )}
 
-            {otherUserTyping && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg px-4 py-2">
-                  <span className="text-muted-foreground">typing...</span>
-                </div>
+          {/* Typing indicator */}
+          {otherUserTyping && (
+            <div className="flex justify-start">
+              <div className="bg-gray-200 rounded-lg px-4 py-2">
+                <span className="text-gray-600">typing...</span>
               </div>
-            )}
+            </div>
+          )}
 
-            <div ref={messagesEndRef} />
-          </div>
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
 
-          <form onSubmit={handleSendMessage} className="flex space-x-2">
-            <Input
-              value={newMessage}
-              onChange={handleInputChange}
-              placeholder="Type a message..."
-              disabled={sending}
-            />
-            <Button type="submit" disabled={sending || !newMessage.trim()}>
-              <Send className="w-4 h-4" />
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Input */}
+      <div className="bg-white border-t px-4 py-3 shadow-lg">
+        <form 
+          onSubmit={handleSendMessage} 
+          className="flex space-x-2 max-w-4xl mx-auto"
+        >
+          <input
+            type="text"
+            value={newMessage}
+            onChange={handleInputChange}
+            placeholder="Type a message..."
+            disabled={sending}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="submit"
+            disabled={sending || !newMessage.trim()}
+            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+          >
+            {sending ? 'Sending...' : 'Send'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

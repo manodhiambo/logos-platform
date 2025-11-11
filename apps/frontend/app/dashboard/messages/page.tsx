@@ -1,12 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import messageService, { Conversation } from '@/lib/services/message.service';
+import messageService from '@/lib/services/message.service';
 import { useRouter } from 'next/navigation';
-import { formatDistanceToNow } from 'date-fns';
+
+interface Conversation {
+  conversationId: string;
+  otherUser: {
+    id: string;
+    fullName: string;
+    avatarUrl?: string;
+    email: string;
+  };
+  lastMessagePreview?: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+}
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -44,68 +53,104 @@ export default function MessagesPage() {
     router.push(`/dashboard/messages/${userId}`);
   };
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    }
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  };
+
   if (loading) {
-    return <div className="p-4">Loading conversations...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading conversations...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex justify-between items-center">
-            <span>Messages</span>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-4 border-b">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Messages</h1>
             {unreadCount > 0 && (
-              <Badge variant="destructive">{unreadCount} unread</Badge>
+              <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                {unreadCount} unread
+              </span>
             )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </div>
+        </div>
+        
+        <div className="divide-y">
           {conversations.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
+            <div className="p-8 text-center text-gray-500">
               No conversations yet. Start chatting with your friends!
-            </p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {conversations.map((conv) => (
-                <div
-                  key={conv.conversationId}
-                  onClick={() => handleConversationClick(conv.otherUser.id)}
-                  className="flex items-center space-x-4 p-3 hover:bg-accent rounded-lg cursor-pointer"
-                >
-                  <Avatar>
-                    <AvatarImage src={conv.otherUser.avatarUrl} />
-                    <AvatarFallback>
-                      {conv.otherUser.fullName.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <p className="font-semibold truncate">
-                        {conv.otherUser.fullName}
-                      </p>
-                      {conv.lastMessageAt && (
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(conv.lastMessageAt), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {conv.lastMessagePreview || 'No messages yet'}
-                    </p>
-                  </div>
-                  {conv.unreadCount > 0 && (
-                    <Badge variant="destructive" className="ml-auto">
-                      {conv.unreadCount}
-                    </Badge>
+            conversations.map((conv) => (
+              <div
+                key={conv.conversationId}
+                onClick={() => handleConversationClick(conv.otherUser.id)}
+                className="flex items-center space-x-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+              >
+                {/* Avatar */}
+                <div className="w-14 h-14 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                  {conv.otherUser.avatarUrl ? (
+                    <img
+                      src={conv.otherUser.avatarUrl}
+                      alt={conv.otherUser.fullName}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-gray-600">
+                      {conv.otherUser.fullName.charAt(0).toUpperCase()}
+                    </span>
                   )}
                 </div>
-              ))}
-            </div>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-1">
+                    <p className="font-semibold text-gray-900 truncate">
+                      {conv.otherUser.fullName}
+                    </p>
+                    {conv.lastMessageAt && (
+                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                        {formatDate(conv.lastMessageAt)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 truncate">
+                    {conv.lastMessagePreview || 'No messages yet'}
+                  </p>
+                </div>
+                
+                {/* Unread Badge */}
+                {conv.unreadCount > 0 && (
+                  <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
+                    {conv.unreadCount}
+                  </span>
+                )}
+              </div>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
