@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../../../shared/middleware/auth.middleware';
+import { authenticate } from '../../../shared/middlewares/auth.middleware';
 import * as friendshipController from '../controllers/friendship.controller';
 
 const router = Router();

@@ -1,4 +1,4 @@
-import { DataTypes, Model } from 'sequelize';
+import { DataTypes, Model, Optional } from 'sequelize';
 import { sequelize } from '../../config/database.config';
 
 export enum CommunityCategory {
@@ -15,28 +15,38 @@ export enum PrivacyLevel {
   INVITE_ONLY = 'invite_only',
 }
 
-export interface CommunityAttributes {
+interface CommunityAttributes {
   id: string;
   name: string;
   description?: string;
   category: CommunityCategory;
   privacyLevel: PrivacyLevel;
+  avatarUrl?: string;
+  coverImageUrl?: string;
   createdBy: string;
   memberCount: number;
-  avatarUrl?: string;
+  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
-class Community extends Model<CommunityAttributes> implements CommunityAttributes {
+interface CommunityCreationAttributes
+  extends Optional<CommunityAttributes, 'id' | 'memberCount' | 'isActive' | 'createdAt' | 'updatedAt'> {}
+
+class Community
+  extends Model<CommunityAttributes, CommunityCreationAttributes>
+  implements CommunityAttributes
+{
   public id!: string;
   public name!: string;
   public description?: string;
   public category!: CommunityCategory;
   public privacyLevel!: PrivacyLevel;
+  public avatarUrl?: string;
+  public coverImageUrl?: string;
   public createdBy!: string;
   public memberCount!: number;
-  public avatarUrl?: string;
+  public isActive!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -50,7 +60,7 @@ Community.init(
       primaryKey: true,
     },
     name: {
-      type: DataTypes.STRING,
+      type: DataTypes.STRING(255),
       allowNull: false,
     },
     description: {
@@ -60,16 +70,26 @@ Community.init(
     category: {
       type: DataTypes.ENUM(...Object.values(CommunityCategory)),
       allowNull: false,
-      defaultValue: CommunityCategory.GENERAL,
     },
     privacyLevel: {
       type: DataTypes.ENUM(...Object.values(PrivacyLevel)),
-      allowNull: false,
       defaultValue: PrivacyLevel.PUBLIC,
+      field: 'privacy_level',
+    },
+    avatarUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: 'avatar_url',
+    },
+    coverImageUrl: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: 'cover_image_url',
     },
     createdBy: {
       type: DataTypes.UUID,
       allowNull: false,
+      field: 'created_by',
       references: {
         model: 'users',
         key: 'id',
@@ -77,12 +97,23 @@ Community.init(
     },
     memberCount: {
       type: DataTypes.INTEGER,
-      defaultValue: 0,
-      allowNull: false,
+      defaultValue: 1,
+      field: 'member_count',
     },
-    avatarUrl: {
-      type: DataTypes.STRING,
-      allowNull: true,
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+      field: 'is_active',
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'created_at',
+    },
+    updatedAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      field: 'updated_at',
     },
   },
   {

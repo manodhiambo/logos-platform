@@ -65,3 +65,8 @@ class JWTUtil {
 }
 
 export const jwtUtil = new JWTUtil();
+
+// --- Added function to fix Socket.IO import ---
+export function verifyToken(token: string): JWTPayload {
+  return jwtUtil.verifyAccessToken(token);
+}

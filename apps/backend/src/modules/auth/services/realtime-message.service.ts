@@ -128,10 +128,11 @@ class RealtimeMessageService {
 
     if (!conversation) return null;
 
-    const otherUser =
-      conversation.participant1Id === userId
-        ? conversation.participant2
-        : conversation.participant1;
+    // Get the other user based on conversation associations
+    const otherUser = (conversation as any).participant1?.id === userId
+      ? (conversation as any).participant2
+      : (conversation as any).participant1;
+      
     const unreadCount =
       conversation.participant1Id === userId
         ? conversation.unreadCountUser1

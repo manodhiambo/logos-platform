@@ -17,7 +17,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new AppError('No token provided. Please login.', 401);
     }
@@ -65,17 +65,17 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       const decoded = jwtUtil.verifyAccessToken(token);
       const user = await User.findByPk(decoded.userId);
-      
+
       if (user && !user.isDeleted && user.status === UserStatus.ACTIVE) {
         req.user = user;
       }
     }
-    
+
     next();
   } catch (error) {
     next();
@@ -150,3 +150,6 @@ export const requirePermission = (permission: string) => {
     next();
   };
 };
+
+// --- Added export to fix route imports ---
+export const authMiddleware = authenticate;
