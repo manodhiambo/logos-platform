@@ -72,3 +72,5 @@ class CommunityService {
 }
 
 export default new CommunityService();
+
+export const communityService = new CommunityService();
