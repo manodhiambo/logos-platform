@@ -11,6 +11,20 @@ interface User {
   fullName: string;
   role: string;
   avatarUrl?: string;
+  bio?: string;
+  denomination?: string;
+  spiritualJourneyStage?: string;
+  country?: string;
+  city?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  timezone?: string;
+  preferredBibleTranslation?: string;
+  gender?: string;
+  isEmailVerified?: boolean;
+  isProfileComplete?: boolean;
+  lastActive?: string;
+  createdAt?: string;
 }
 
 interface RegisterData {
@@ -18,6 +32,8 @@ interface RegisterData {
   username: string;
   password: string;
   fullName: string;
+  confirmPassword?: string;
+  spiritualJourneyStage?: string;
 }
 
 interface AuthContextType {
@@ -27,6 +43,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<{ needsVerification: boolean }>;
   logout: () => void;
   refreshToken: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Save to localStorage
     localStorage.setItem('token', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(user)); // FIX: Save user data
+    localStorage.setItem('user', JSON.stringify(user));
     
     setUser(user);
     router.push('/dashboard');
@@ -83,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const { token, user } = response.data.data;
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user)); // FIX: Save user data
+    localStorage.setItem('user', JSON.stringify(user));
     setUser(user);
     
     return { needsVerification: false };
@@ -110,13 +127,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user'); // FIX: Also remove user data
+    localStorage.removeItem('user');
     setUser(null);
     router.push('/login');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshToken }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshToken, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );
