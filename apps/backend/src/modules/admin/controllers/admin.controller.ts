@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import adminService from '../services/admin.service';
+import adminService from '../services/admin.service'; // Changed from named import to default
 import { AppError } from '../../../shared/middlewares/error-handler.middleware';
 
 class AdminController {
-  // Get all users
+  // Get all users with filters
   async getAllUsers(req: Request, res: Response, next: NextFunction) {
     try {
       const filters = {
@@ -13,15 +13,15 @@ class AdminController {
         status: req.query.status as any,
         search: req.query.search as string,
         sortBy: (req.query.sortBy as string) || 'createdAt',
-        sortOrder: (req.query.sortOrder as string) || 'desc',
-        includeDeleted: req.query.includeDeleted === 'true',
+        sortOrder: (req.query.sortOrder as string) || 'DESC',
       };
 
       const result = await adminService.getAllUsers(filters);
 
       res.json({
         success: true,
-        data: result,
+        data: result.users,
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
@@ -36,7 +36,7 @@ class AdminController {
 
       res.json({
         success: true,
-        data: { user },
+        data: user,
       });
     } catch (error) {
       next(error);
@@ -57,8 +57,8 @@ class AdminController {
 
       res.json({
         success: true,
-        message: `User role updated to ${role}`,
-        data: { user },
+        message: 'User role updated successfully',
+        data: user,
       });
     } catch (error) {
       next(error);
@@ -75,8 +75,8 @@ class AdminController {
 
       res.json({
         success: true,
-        message: `User status updated to ${status}`,
-        data: { user },
+        message: 'User status updated successfully',
+        data: user,
       });
     } catch (error) {
       next(error);
@@ -112,7 +112,7 @@ class AdminController {
       res.status(201).json({
         success: true,
         message: 'User created successfully',
-        data: { user: user.toSafeObject() },
+        data: user,
       });
     } catch (error) {
       next(error);
@@ -122,8 +122,7 @@ class AdminController {
   // Get system statistics
   async getSystemStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const { period } = req.query;
-      const stats = await adminService.getSystemStats(period as string);
+      const stats = await adminService.getSystemStats();
 
       res.json({
         success: true,
@@ -146,7 +145,7 @@ class AdminController {
       res.status(201).json({
         success: true,
         message: 'Announcement created successfully',
-        data: { announcement },
+        data: announcement,
       });
     } catch (error) {
       next(error);
@@ -162,7 +161,7 @@ class AdminController {
       res.json({
         success: true,
         message: 'Announcement updated successfully',
-        data: { announcement },
+        data: announcement,
       });
     } catch (error) {
       next(error);
@@ -173,11 +172,11 @@ class AdminController {
   async deleteAnnouncement(req: Request, res: Response, next: NextFunction) {
     try {
       const { announcementId } = req.params;
-      const result = await adminService.deleteAnnouncement(announcementId);
+      await adminService.deleteAnnouncement(announcementId);
 
       res.json({
         success: true,
-        message: result.message,
+        message: 'Announcement deleted successfully',
       });
     } catch (error) {
       next(error);
@@ -194,7 +193,8 @@ class AdminController {
 
       res.json({
         success: true,
-        data: result,
+        data: result.announcements,
+        pagination: result.pagination,
       });
     } catch (error) {
       next(error);
