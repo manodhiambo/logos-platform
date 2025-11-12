@@ -198,17 +198,28 @@ export default function ProfilePage() {
 
     const formData = new FormData();
     formData.append('avatar', file);
-
     setUploading(true);
+
     try {
-      await apiClient.post('/auth/me/avatar', formData, {
+      const response = await apiClient.post('/auth/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      alert('Avatar updated successfully! 📸 Refreshing...');
+      // Update localStorage with new user data
+      const updatedUser = response.data.data.user;
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const newUser = { ...currentUser, ...updatedUser };
+      localStorage.setItem('user', JSON.stringify(newUser));
+
+      alert('Avatar updated successfully! 📸');
       window.location.reload();
     } catch (error: any) {
       console.error('Failed to upload avatar:', error);
+      alert(error.response?.data?.error?.message || 'Failed to upload avatar');
+    } finally {
+      setUploading(false);
+    }
+  };
       alert(error.response?.data?.error?.message || 'Failed to upload avatar');
     } finally {
       setUploading(false);
