@@ -57,3 +57,11 @@ PostLike.init(
 );
 
 export default PostLike;
+
+// Import models for associations
+import User from '../../../database/models/user.model';
+import Post from './Post.model';
+
+// Define associations
+PostLike.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+PostLike.belongsTo(Post, { foreignKey: 'postId', as: 'post' });

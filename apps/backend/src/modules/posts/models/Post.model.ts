@@ -116,3 +116,15 @@ Post.init(
 );
 
 export default Post;
+
+// Import models for associations
+import User from '../../../database/models/user.model';
+import Community from '../../../database/models/community.model';
+import Comment from './Comment.model';
+import PostLike from './PostLike.model';
+
+// Define associations
+Post.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+Post.belongsTo(Community, { foreignKey: 'communityId', as: 'community' });
+Post.hasMany(Comment, { foreignKey: 'postId', as: 'comments' });
+Post.hasMany(PostLike, { foreignKey: 'postId', as: 'likes' });
