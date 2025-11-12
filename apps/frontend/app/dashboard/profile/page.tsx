@@ -220,11 +220,6 @@ export default function ProfilePage() {
       setUploading(false);
     }
   };
-      alert(error.response?.data?.error?.message || 'Failed to upload avatar');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
