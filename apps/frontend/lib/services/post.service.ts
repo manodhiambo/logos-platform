@@ -55,13 +55,20 @@ class PostService {
     return response?.data?.data || response?.data || response;
   }
 
-  async getPosts(params?: { 
-    page?: number; 
-    limit?: number; 
+  async getPosts(params?: {
+    page?: number;
+    limit?: number;
     communityId?: string;
     authorId?: string;
   }) {
     const response = await apiClient.get('/posts', { params });
+    return this.unwrap(response);
+  }
+
+  async getCommunityPosts(communityId: string, page: number = 1, limit: number = 20) {
+    const response = await apiClient.get('/posts', { 
+      params: { communityId, page, limit } 
+    });
     return this.unwrap(response);
   }
 
@@ -101,7 +108,10 @@ class PostService {
   }
 
   async addComment(postId: string, content: string, parentCommentId?: string) {
-    const response = await apiClient.post(`/posts/${postId}/comments`, { content, parentCommentId });
+    const response = await apiClient.post(`/posts/${postId}/comments`, { 
+      content, 
+      parentCommentId 
+    });
     return this.unwrap(response);
   }
 
