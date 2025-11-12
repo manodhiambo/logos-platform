@@ -25,6 +25,7 @@ interface Post {
   content: string;
   authorId: string;
   author: {
+    id: string;
     fullName: string;
     avatarUrl?: string;
   };
@@ -43,11 +44,24 @@ export default function CommunityDetailPage() {
   const [loading, setLoading] = useState(true);
   const [newPostContent, setNewPostContent] = useState('');
   const [posting, setPosting] = useState(false);
+  const [editingPost, setEditingPost] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
 
   useEffect(() => {
+    loadCurrentUser();
     loadCommunity();
     loadPosts();
   }, [communityId]);
+
+  const loadCurrentUser = () => {
+    // Get from localStorage or context
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setCurrentUserId(userData.id);
+    }
+  };
 
   const loadCommunity = async () => {
     try {
@@ -64,7 +78,6 @@ export default function CommunityDetailPage() {
     try {
       const data = await postService.getCommunityPosts(communityId);
       console.log('Posts data:', data);
-      // Handle different response structures
       const postsArray = Array.isArray(data) ? data : (data?.posts || []);
       setPosts(postsArray);
     } catch (error) {
@@ -113,6 +126,42 @@ export default function CommunityDetailPage() {
     } finally {
       setPosting(false);
     }
+  };
+
+  const handleEditPost = async (postId: string) => {
+    if (!editContent.trim()) return;
+    
+    try {
+      await postService.updatePost(postId, { content: editContent });
+      setEditingPost(null);
+      setEditContent('');
+      loadPosts();
+      alert('Post updated! ✅');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to update post');
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    
+    try {
+      await postService.deletePost(postId);
+      loadPosts();
+      alert('Post deleted! 🗑️');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to delete post');
+    }
+  };
+
+  const startEdit = (post: Post) => {
+    setEditingPost(post.id);
+    setEditContent(post.content);
+  };
+
+  const cancelEdit = () => {
+    setEditingPost(null);
+    setEditContent('');
   };
 
   if (loading) {
@@ -246,32 +295,82 @@ export default function CommunityDetailPage() {
           posts.map((post) => (
             <Card key={post.id} className="p-6">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0">
                   {post.author?.fullName?.charAt(0) || '?'}
                 </div>
                 
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-semibold text-slate-800">
-                      {post.author?.fullName || 'Unknown'}
-                    </h4>
-                    <span className="text-sm text-slate-500">
-                      {new Date(post.createdAt).toLocaleDateString()}
-                    </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold text-slate-800">
+                        {post.author?.fullName || 'Unknown'}
+                      </h4>
+                      <span className="text-sm text-slate-500">
+                        {new Date(post.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {/* Edit/Delete buttons for post author */}
+                    {post.authorId === currentUserId && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(post)}
+                        >
+                          ✏️ Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeletePost(post.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          🗑️ Delete
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   
-                  <p className="text-slate-700 mb-3">{post.content}</p>
-                  
-                  <div className="flex items-center gap-4 text-sm text-slate-500">
-                    <button className="flex items-center gap-1 hover:text-primary">
-                      <span>👍</span>
-                      <span>{post.likeCount || 0}</span>
-                    </button>
-                    <button className="flex items-center gap-1 hover:text-primary">
-                      <span>💬</span>
-                      <span>{post.commentCount || 0}</span>
-                    </button>
-                  </div>
+                  {editingPost === post.id ? (
+                    <div className="space-y-3">
+                      <Textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        rows={3}
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm"
+                          onClick={() => handleEditPost(post.id)}
+                        >
+                          Save
+                        </Button>
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={cancelEdit}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-slate-700 mb-3 break-words">{post.content}</p>
+                      
+                      <div className="flex items-center gap-4 text-sm text-slate-500">
+                        <button className="flex items-center gap-1 hover:text-primary">
+                          <span>👍</span>
+                          <span>{post.likeCount || 0}</span>
+                        </button>
+                        <button className="flex items-center gap-1 hover:text-primary">
+                          <span>💬</span>
+                          <span>{post.commentCount || 0}</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </Card>
