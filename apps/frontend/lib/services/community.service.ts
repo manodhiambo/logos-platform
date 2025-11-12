@@ -12,6 +12,8 @@ export interface Community {
   createdBy?: string;
   createdAt?: string;
   updatedAt?: string;
+  isMember?: boolean;
+  userRole?: string;
 }
 
 export interface CreateCommunityData {
@@ -24,7 +26,6 @@ export interface CreateCommunityData {
 class CommunityService {
   async getCommunities(params?: { search?: string; category?: string }) {
     const response = await apiClient.get('/communities', { params });
-    // Backend returns { message, data: communities[], pagination }
     return response.data.data;
   }
 
@@ -72,5 +73,4 @@ class CommunityService {
 }
 
 export default new CommunityService();
-
 export const communityService = new CommunityService();

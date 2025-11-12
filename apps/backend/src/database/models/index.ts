@@ -36,7 +36,7 @@ User.hasMany(UserDevotionalProgress, { foreignKey: 'userId', as: 'devotionalProg
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(AIConversation, { foreignKey: 'userId', as: 'aiConversations' });
 User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
-User.hasMany(VideoCall, { foreignKey: 'createdBy', as: 'createdVideoCalls' });
+User.hasMany(VideoCall, { foreignKey: 'hostId', as: 'createdVideoCalls' });
 User.hasMany(CallParticipant, { foreignKey: 'userId', as: 'callParticipations' });
 User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'sentFriendRequests' });
 User.hasMany(Friendship, { foreignKey: 'addresseeId', as: 'receivedFriendRequests' });
