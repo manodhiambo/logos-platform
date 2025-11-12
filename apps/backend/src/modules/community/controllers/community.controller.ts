@@ -42,7 +42,7 @@ export const getCommunities = async (req: Request, res: Response) => {
 export const getCommunityById = async (req: Request, res: Response) => {
   try {
     const { communityId } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.id; // Get userId from authenticated user
 
     const community = await CommunityService.getCommunityById(communityId, userId);
     res.json({
