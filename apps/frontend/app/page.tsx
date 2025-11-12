@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -296,9 +297,13 @@ export default function LandingPage() {
                 </svg>
                 <span className="text-xl font-bold">LOGOS</span>
               </div>
-              <p className="text-slate-400">
+              <p className="text-slate-400 mb-4">
                 Building Christian community, one connection at a time.
               </p>
+              <a href="mailto:manodhiambo@gmail.com" className="text-slate-400 hover:text-white transition flex items-center gap-2">
+                <span>✉️</span>
+                <span>manodhiambo@gmail.com</span>
+              </a>
             </div>
             
             <div>
@@ -306,7 +311,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-slate-400">
                 <li><Link href="#features" className="hover:text-white">Features</Link></li>
                 <li><Link href="/about" className="hover:text-white">About Us</Link></li>
-                <li><Link href="/contact" className="hover:text-white">Contact</Link></li>
+                <li><a href="mailto:manodhiambo@gmail.com" className="hover:text-white">Contact</a></li>
               </ul>
             </div>
             
@@ -329,7 +334,7 @@ export default function LandingPage() {
           </div>
           
           <div className="border-t border-slate-800 pt-8 text-center text-slate-400">
-            <p>&copy; 2024 LOGOS Platform. All rights reserved. Built with ❤️ for the Body of Christ.</p>
+            <p>&copy; {currentYear} LOGOS Platform. All rights reserved. Built with ❤️ for the Body of Christ.</p>
           </div>
         </div>
       </footer>
