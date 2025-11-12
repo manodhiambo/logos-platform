@@ -1,4 +1,7 @@
 import User, { UserRole, UserStatus } from '../../../database/models/user.model';
+import Community from '../../../database/models/community.model';
+import PrayerRequest from '../../../database/models/prayer-request.model';
+import Post from '../../../database/models/post.model';
 import Announcement, { AnnouncementStatus } from '../../../database/models/announcement.model';
 import { AppError } from '../../../shared/middlewares/error-handler.middleware';
 import { emailService } from '../../../shared/utils/email.util';
@@ -15,22 +18,19 @@ class AdminService {
     search?: string;
     sortBy: string;
     sortOrder: string;
-    includeDeleted: boolean;
   }) {
-    const { page, limit, role, status, search, sortBy, sortOrder, includeDeleted } = filters;
+    const { page, limit, role, status, search, sortBy, sortOrder } = filters;
     const offset = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { isDeleted: false };
 
     if (role) where.role = role;
     if (status) where.status = status;
-    if (!includeDeleted) where.isDeleted = false;
-
     if (search) {
       where[Op.or] = [
+        { username: { [Op.iLike]: `%${search}%` } },
         { fullName: { [Op.iLike]: `%${search}%` } },
         { email: { [Op.iLike]: `%${search}%` } },
-        { username: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
@@ -38,8 +38,8 @@ class AdminService {
       where,
       limit,
       offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
-      attributes: { exclude: ['passwordHash', 'emailVerificationToken', 'passwordResetToken'] },
+      order: [[sortBy || 'createdAt', sortOrder || 'DESC']],
+      attributes: { exclude: ['password'] },
     });
 
     return {
@@ -56,12 +56,33 @@ class AdminService {
   // Get user by ID
   async getUserById(userId: string) {
     const user = await User.findByPk(userId, {
-      attributes: { exclude: ['passwordHash', 'emailVerificationToken', 'passwordResetToken'] },
+      attributes: { exclude: ['password'] },
     });
 
     if (!user) {
       throw new AppError('User not found', 404);
     }
+
+    return user;
+  }
+
+  // Create user manually
+  async createUser(userData: any) {
+    const existingUser = await User.findOne({
+      where: {
+        [Op.or]: [{ email: userData.email }, { username: userData.username }],
+      },
+    });
+
+    if (existingUser) {
+      throw new AppError('User with this email or username already exists', 400);
+    }
+
+    const user = await User.create({
+      ...userData,
+      emailVerified: true,
+      status: UserStatus.ACTIVE,
+    });
 
     return user;
   }
@@ -75,155 +96,93 @@ class AdminService {
       throw new AppError('User not found', 404);
     }
 
-    // Prevent demoting or modifying super admins unless you are super admin
-    if (user.role === UserRole.SUPER_ADMIN && !admin?.isSuperAdmin()) {
-      throw new AppError('Only super admins can modify super admin accounts', 403);
+    // Only super admins can assign admin or super_admin roles
+    if ((newRole === UserRole.ADMIN || newRole === UserRole.SUPER_ADMIN) && admin?.role !== UserRole.SUPER_ADMIN) {
+      throw new AppError('Only super admins can assign admin roles', 403);
     }
 
-    // Prevent regular admins from creating super admins
-    if (newRole === UserRole.SUPER_ADMIN && !admin?.isSuperAdmin()) {
-      throw new AppError('Only super admins can create super admin accounts', 403);
-    }
-
-    user.role = newRole;
-    await user.save();
+    await user.update({ role: newRole });
 
     return user;
   }
 
-  // Update user status (suspend, ban, activate)
-  async updateUserStatus(userId: string, newStatus: UserStatus, reason?: string) {
+  // Update user status
+  async updateUserStatus(userId: string, status: UserStatus, reason?: string) {
     const user = await User.findByPk(userId);
 
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    // Cannot suspend/ban super admins
-    if (user.role === UserRole.SUPER_ADMIN) {
-      throw new AppError('Cannot modify super admin status', 403);
-    }
+    await user.update({ status });
 
-    user.status = newStatus;
-    await user.save();
-
-    // Log the action (you can create an audit log table later)
-    // await AuditLog.create({ action: 'STATUS_CHANGE', userId, newStatus, reason });
-
-    return user;
-  }
-
-  // Delete user (soft or hard delete)
-  async deleteUser(adminId: string, userId: string, deleteType: 'soft' | 'hard', reason: string) {
-    const user = await User.findByPk(userId);
-
-    if (!user) {
-      throw new AppError('User not found', 404);
-    }
-
-    // Cannot delete super admins
-    if (user.role === UserRole.SUPER_ADMIN) {
-      throw new AppError('Cannot delete super admin accounts', 403);
-    }
-
-    if (deleteType === 'soft') {
-      // Soft delete
-      user.isDeleted = true;
-      user.deletedAt = new Date();
-      user.deletedBy = adminId;
-      await user.save();
-
-      // Send notification email
+    if (status === UserStatus.SUSPENDED && reason) {
       await emailService.sendEmail({
         to: user.email,
-        subject: 'Your LOGOS Account Has Been Deleted',
+        subject: 'Account Suspended',
         html: `
-          <h2>Account Deleted</h2>
-          <p>Hello ${user.username},</p>
-          <p>Your LOGOS account has been deleted by an administrator.</p>
+          <p>Your account has been suspended.</p>
           <p><strong>Reason:</strong> ${reason}</p>
-          <p>If you believe this was done in error, please contact support.</p>
         `,
       });
-    } else {
-      // Hard delete - Delete all user content first
-      // TODO: Delete all posts, comments, prayers, etc.
-      await user.destroy();
     }
-
-    return { message: `User ${deleteType} deleted successfully` };
-  }
-
-  // Create user manually
-  async createUser(userData: any) {
-    // Check if email exists
-    const existingEmail = await User.findOne({ where: { email: userData.email } });
-    if (existingEmail) {
-      throw new AppError('Email already exists', 400);
-    }
-
-    // Check if username exists
-    const existingUsername = await User.findOne({ where: { username: userData.username } });
-    if (existingUsername) {
-      throw new AppError('Username already exists', 400);
-    }
-
-    const user = await User.create({
-      ...userData,
-      passwordHash: userData.password,
-    });
 
     return user;
+  }
+
+  // Delete user
+  async deleteUser(adminId: string, userId: string, deleteType: 'soft' | 'hard' = 'soft', reason?: string) {
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (user.role === UserRole.SUPER_ADMIN) {
+      throw new AppError('Cannot delete a super admin', 403);
+    }
+
+    if (deleteType === 'hard') {
+      await user.destroy();
+      return { message: 'User permanently deleted' };
+    } else {
+      await user.update({ isDeleted: true, status: UserStatus.SUSPENDED });
+      return { message: 'User soft deleted' };
+    }
   }
 
   // Get system statistics
-  async getSystemStats(period: string = 'month') {
-    const now = new Date();
-    let startDate = new Date();
-
-    switch (period) {
-      case 'day':
-        startDate.setDate(now.getDate() - 1);
-        break;
-      case 'week':
-        startDate.setDate(now.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
-        break;
-      case 'all':
-        startDate = new Date('2020-01-01');
-        break;
-    }
-
-    const [totalUsers, activeUsers, newUsers, suspendedUsers, bannedUsers] = await Promise.all([
+  async getSystemStats() {
+    const [
+      totalUsers,
+      activeUsers,
+      totalCommunities,
+      totalPrayers,
+      totalPosts,
+      newUsersToday,
+    ] = await Promise.all([
       User.count({ where: { isDeleted: false } }),
       User.count({ where: { status: UserStatus.ACTIVE, isDeleted: false } }),
-      User.count({ where: { createdAt: { [Op.gte]: startDate }, isDeleted: false } }),
-      User.count({ where: { status: UserStatus.SUSPENDED, isDeleted: false } }),
-      User.count({ where: { status: UserStatus.BANNED, isDeleted: false } }),
+      Community.count({ where: { isActive: true } }),
+      PrayerRequest.count(),
+      Post.count(),
+      User.count({
+        where: {
+          createdAt: {
+            [Op.gte]: new Date(new Date().setHours(0, 0, 0, 0)),
+          },
+        },
+      }),
     ]);
 
-    const usersByRole = await User.findAll({
-      where: { isDeleted: false },
-      attributes: ['role', [sequelize.fn('COUNT', sequelize.col('id')), 'count']],
-      group: ['role'],
-      raw: true,
-    });
-
     return {
-      users: {
-        total: totalUsers,
-        active: activeUsers,
-        new: newUsers,
-        suspended: suspendedUsers,
-        banned: bannedUsers,
-        byRole: usersByRole,
-      },
-      period,
+      totalUsers,
+      activeUsersToday: activeUsers,
+      totalCommunities,
+      totalPrayers,
+      totalPosts,
+      pendingModeration: 0,
+      newUsersToday,
       generatedAt: new Date(),
     };
   }
@@ -232,7 +191,7 @@ class AdminService {
   async createAnnouncement(adminId: string, announcementData: any) {
     const announcement = await Announcement.create({
       ...announcementData,
-      authorId: adminId,
+      createdBy: adminId, // Changed from authorId to createdBy
       publishedAt: announcementData.status === 'published' ? new Date() : null,
     });
 
@@ -294,7 +253,7 @@ class AdminService {
       include: [
         {
           model: User,
-          as: 'author',
+          as: 'creator', // Changed from 'author' to 'creator'
           attributes: ['id', 'username', 'fullName'],
         },
       ],
@@ -318,8 +277,8 @@ class AdminService {
         isDeleted: false,
         status: UserStatus.ACTIVE,
         emailVerified: true,
-        'notificationSettings.announcements': true,
       },
+      limit: 1000, // Safety limit
     });
 
     // Send emails in batches to avoid overwhelming the email service
@@ -352,4 +311,4 @@ class AdminService {
   }
 }
 
-export const adminService = new AdminService();
+export default new AdminService();
