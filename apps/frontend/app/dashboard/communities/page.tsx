@@ -31,7 +31,6 @@ export default function CommunitiesPage() {
     try {
       const data = await communityService.getCommunities();
       console.log('Communities data:', data);
-      // The service returns the data directly (array of communities)
       setCommunities(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch communities:', error);
@@ -47,7 +46,14 @@ export default function CommunitiesPage() {
       alert('Successfully joined community! 🎉');
       fetchCommunities(); // Refresh
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to join community');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to join community';
+      
+      // If already a member, just show info message instead of error
+      if (errorMessage.includes('already a member')) {
+        alert('You are already a member of this community! Click "View" to see it.');
+      } else {
+        alert(`Error: ${errorMessage}`);
+      }
     }
   };
 
@@ -130,11 +136,12 @@ export default function CommunitiesPage() {
                 
                 <div className="flex gap-2">
                   <Link href={`/dashboard/communities/${community.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full" size="sm">
+                    <Button className="w-full" size="sm">
                       View
                     </Button>
                   </Link>
                   <Button 
+                    variant="outline"
                     className="flex-1" 
                     size="sm"
                     onClick={() => handleJoinCommunity(community.id)}
