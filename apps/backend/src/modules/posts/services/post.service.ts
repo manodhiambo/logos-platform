@@ -1,30 +1,30 @@
-import { Post, User, Community } from '../../../database/models';
+import Post from '../models/Post.model';
+import User from '../../../database/models/user.model';
+import Community from '../../../database/models/community.model';
+import PostLike from '../models/PostLike.model';
 import { Op } from 'sequelize';
 
 class PostService {
-  async createPost(userId: string, postData: any) {
-    try {
-      const post = await Post.create({
-        authorId: userId,
-        communityId: postData.communityId || null,
-        content: postData.content,
-        postType: postData.postType || 'discussion',
-        attachments: postData.attachments || null,
-        isPinned: false,
-        likesCount: 0,
-        commentsCount: 0,
-      });
+  async createPost(userId: string, data: any) {
+    const post = await Post.create({
+      authorId: userId,
+      communityId: data.communityId || null,
+      content: data.content,
+      postType: data.postType || 'text',
+      mediaUrls: data.mediaUrls || [],
+      isPinned: false,
+      likesCount: 0,
+      commentsCount: 0,
+      shareCount: 0,
+    });
 
-      return this.getPostById(post.id);
-    } catch (error: any) {
-      throw new Error(`Failed to create post: ${error.message}`);
-    }
+    return await this.getPostById(post.id);
   }
 
   async getPosts(filters: any, page: number = 1, limit: number = 20) {
     const offset = (page - 1) * limit;
-    const where: any = {};
 
+    const where: any = { isDeleted: false };
     if (filters.communityId) where.communityId = filters.communityId;
     if (filters.userId) where.authorId = filters.userId;
     if (filters.postType) where.postType = filters.postType;
@@ -35,47 +35,57 @@ class PostService {
       offset,
       order: [
         ['isPinned', 'DESC'],
-        ['createdAt', 'DESC']
+        ['createdAt', 'DESC'],
       ],
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'fullName', 'avatarUrl', 'role'],
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         },
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name', 'avatarUrl'],
+          attributes: ['id', 'name', 'slug'],
           required: false,
         },
       ],
     });
 
+    // Transform posts to use likeCount instead of likesCount
+    const transformedPosts = posts.map(post => {
+      const postJson = post.toJSON();
+      return {
+        ...postJson,
+        likeCount: postJson.likesCount || 0,
+        commentCount: postJson.commentsCount || 0,
+      };
+    });
+
     return {
-      posts,
+      posts: transformedPosts,
       pagination: {
-        total,
-        page,
-        limit,
+        currentPage: page,
         totalPages: Math.ceil(total / limit),
+        totalPosts: total,
+        limit,
       },
     };
   }
 
   async getPostById(postId: string) {
     const post = await Post.findOne({
-      where: { id: postId },
+      where: { id: postId, isDeleted: false },
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'fullName', 'avatarUrl', 'role'],
+          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         },
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name', 'avatarUrl'],
+          attributes: ['id', 'name', 'slug'],
           required: false,
         },
       ],
@@ -85,69 +95,46 @@ class PostService {
       throw new Error('Post not found');
     }
 
-    return post;
+    const postJson = post.toJSON();
+    return {
+      ...postJson,
+      likeCount: postJson.likesCount || 0,
+      commentCount: postJson.commentsCount || 0,
+    };
   }
 
-  async updatePost(postId: string, userId: string, updateData: any) {
+  async updatePost(postId: string, userId: string, data: any) {
     const post = await Post.findOne({
-      where: { id: postId, authorId: userId },
+      where: { id: postId, isDeleted: false },
     });
 
     if (!post) {
-      throw new Error('Post not found or you do not have permission to update it');
+      throw new Error('Post not found');
     }
 
-    const allowedUpdates = ['content', 'attachments'];
-    const updates: any = {};
+    if (post.authorId !== userId) {
+      throw new Error('Unauthorized: You can only update your own posts');
+    }
 
-    allowedUpdates.forEach(field => {
-      if (updateData[field] !== undefined) {
-        updates[field] = updateData[field];
-      }
-    });
-
-    await post.update(updates);
-    return this.getPostById(postId);
+    await post.update(data);
+    return await this.getPostById(postId);
   }
 
   async deletePost(postId: string, userId: string) {
     const post = await Post.findOne({
-      where: { id: postId, authorId: userId },
+      where: { id: postId, isDeleted: false },
     });
 
     if (!post) {
-      throw new Error('Post not found or you do not have permission to delete it');
+      throw new Error('Post not found');
     }
 
-    await post.destroy();
-  }
-
-  async incrementLikeCount(postId: string) {
-    const post = await Post.findByPk(postId);
-    if (post) {
-      await post.increment('likesCount');
+    if (post.authorId !== userId) {
+      throw new Error('Unauthorized: You can only delete your own posts');
     }
-  }
 
-  async decrementLikeCount(postId: string) {
-    const post = await Post.findByPk(postId);
-    if (post && post.likesCount > 0) {
-      await post.decrement('likesCount');
-    }
-  }
-
-  async incrementCommentCount(postId: string) {
-    const post = await Post.findByPk(postId);
-    if (post) {
-      await post.increment('commentsCount');
-    }
-  }
-
-  async decrementCommentCount(postId: string) {
-    const post = await Post.findByPk(postId);
-    if (post && post.commentsCount > 0) {
-      await post.decrement('commentsCount');
-    }
+    await post.update({ isDeleted: true });
+    return { message: 'Post deleted successfully' };
   }
 }
 
