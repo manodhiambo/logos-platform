@@ -51,7 +51,6 @@ export interface UpdatePostData {
 
 class PostService {
   private unwrap(response: any) {
-    // Ensure consistent structure regardless of backend shape
     return response?.data?.data || response?.data || response;
   }
 
@@ -97,13 +96,20 @@ class PostService {
     return this.unwrap(response);
   }
 
+  async getPostLikes(postId: string) {
+    const response = await apiClient.get(`/posts/${postId}/likes`);
+    return this.unwrap(response);
+  }
+
   async togglePin(postId: string) {
     const response = await apiClient.post(`/posts/${postId}/pin`);
     return this.unwrap(response);
   }
 
-  async getComments(postId: string) {
-    const response = await apiClient.get(`/posts/${postId}/comments`);
+  async getComments(postId: string, page: number = 1, limit: number = 20) {
+    const response = await apiClient.get(`/posts/${postId}/comments`, {
+      params: { page, limit }
+    });
     return this.unwrap(response);
   }
 

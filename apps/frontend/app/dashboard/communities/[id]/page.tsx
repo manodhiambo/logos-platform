@@ -31,6 +31,16 @@ interface Post {
   };
   likeCount: number;
   commentCount: number;
+  isLiked?: boolean;
+  createdAt: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  author: {
+    fullName: string;
+  };
   createdAt: string;
 }
 
@@ -47,6 +57,9 @@ export default function CommunityDetailPage() {
   const [editingPost, setEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [showComments, setShowComments] = useState<{ [key: string]: boolean }>({});
+  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
+  const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     loadCurrentUser();
@@ -55,7 +68,6 @@ export default function CommunityDetailPage() {
   }, [communityId]);
 
   const loadCurrentUser = () => {
-    // Get from localStorage or context
     const user = localStorage.getItem('user');
     if (user) {
       const userData = JSON.parse(user);
@@ -77,7 +89,6 @@ export default function CommunityDetailPage() {
   const loadPosts = async () => {
     try {
       const data = await postService.getCommunityPosts(communityId);
-      console.log('Posts data:', data);
       const postsArray = Array.isArray(data) ? data : (data?.posts || []);
       setPosts(postsArray);
     } catch (error) {
@@ -120,11 +131,28 @@ export default function CommunityDetailPage() {
       });
       setNewPostContent('');
       loadPosts();
-      alert('Post created! 🎉');
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to create post');
     } finally {
       setPosting(false);
+    }
+  };
+
+  const handleLikePost = async (postId: string) => {
+    try {
+      await postService.toggleLike(postId);
+      // Update the post in state
+      setPosts(posts.map(p => 
+        p.id === postId 
+          ? { 
+              ...p, 
+              isLiked: !p.isLiked,
+              likeCount: p.isLiked ? p.likeCount - 1 : p.likeCount + 1
+            }
+          : p
+      ));
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to like post');
     }
   };
 
@@ -136,7 +164,6 @@ export default function CommunityDetailPage() {
       setEditingPost(null);
       setEditContent('');
       loadPosts();
-      alert('Post updated! ✅');
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to update post');
     }
@@ -148,9 +175,44 @@ export default function CommunityDetailPage() {
     try {
       await postService.deletePost(postId);
       loadPosts();
-      alert('Post deleted! 🗑️');
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to delete post');
+    }
+  };
+
+  const toggleComments = async (postId: string) => {
+    if (!showComments[postId]) {
+      // Load comments
+      try {
+        const data = await postService.getComments(postId);
+        const commentsArray = Array.isArray(data) ? data : (data?.comments || []);
+        setComments({ ...comments, [postId]: commentsArray });
+      } catch (error) {
+        console.error('Failed to load comments:', error);
+      }
+    }
+    setShowComments({ ...showComments, [postId]: !showComments[postId] });
+  };
+
+  const handleAddComment = async (postId: string) => {
+    const content = newComment[postId]?.trim();
+    if (!content) return;
+    
+    try {
+      await postService.addComment(postId, content);
+      setNewComment({ ...newComment, [postId]: '' });
+      // Reload comments
+      const data = await postService.getComments(postId);
+      const commentsArray = Array.isArray(data) ? data : (data?.comments || []);
+      setComments({ ...comments, [postId]: commentsArray });
+      // Update comment count
+      setPosts(posts.map(p => 
+        p.id === postId 
+          ? { ...p, commentCount: p.commentCount + 1 }
+          : p
+      ));
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to add comment');
     }
   };
 
@@ -310,7 +372,6 @@ export default function CommunityDetailPage() {
                       </span>
                     </div>
                     
-                    {/* Edit/Delete buttons for post author */}
                     {post.authorId === currentUserId && (
                       <div className="flex gap-2">
                         <Button
@@ -318,15 +379,15 @@ export default function CommunityDetailPage() {
                           size="sm"
                           onClick={() => startEdit(post)}
                         >
-                          ✏️ Edit
+                          ✏️
                         </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeletePost(post.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600"
                         >
-                          🗑️ Delete
+                          🗑️
                         </Button>
                       </div>
                     )}
@@ -359,16 +420,63 @@ export default function CommunityDetailPage() {
                     <>
                       <p className="text-slate-700 mb-3 break-words">{post.content}</p>
                       
-                      <div className="flex items-center gap-4 text-sm text-slate-500">
-                        <button className="flex items-center gap-1 hover:text-primary">
-                          <span>👍</span>
+                      <div className="flex items-center gap-4 text-sm">
+                        <button 
+                          className={`flex items-center gap-1 transition ${
+                            post.isLiked ? 'text-primary font-semibold' : 'text-slate-500 hover:text-primary'
+                          }`}
+                          onClick={() => handleLikePost(post.id)}
+                        >
+                          <span>{post.isLiked ? '👍' : '👍🏻'}</span>
                           <span>{post.likeCount || 0}</span>
                         </button>
-                        <button className="flex items-center gap-1 hover:text-primary">
+                        <button 
+                          className="flex items-center gap-1 text-slate-500 hover:text-primary transition"
+                          onClick={() => toggleComments(post.id)}
+                        >
                           <span>💬</span>
                           <span>{post.commentCount || 0}</span>
                         </button>
                       </div>
+
+                      {/* Comments Section */}
+                      {showComments[post.id] && (
+                        <div className="mt-4 space-y-3 border-t pt-4">
+                          {comments[post.id]?.map((comment) => (
+                            <div key={comment.id} className="flex gap-3 text-sm">
+                              <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center text-white font-semibold shrink-0">
+                                {comment.author?.fullName?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-800">
+                                  {comment.author?.fullName || 'Unknown'}
+                                </p>
+                                <p className="text-slate-600">{comment.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          <div className="flex gap-2 mt-3">
+                            <Textarea
+                              placeholder="Write a comment..."
+                              value={newComment[post.id] || ''}
+                              onChange={(e) => setNewComment({ 
+                                ...newComment, 
+                                [post.id]: e.target.value 
+                              })}
+                              rows={2}
+                              className="text-sm"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddComment(post.id)}
+                              disabled={!newComment[post.id]?.trim()}
+                            >
+                              Send
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
