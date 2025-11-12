@@ -46,7 +46,7 @@ class PostService {
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name'], // Removed 'slug'
+          attributes: ['id', 'name'],
           required: false,
         },
       ],
@@ -85,7 +85,7 @@ class PostService {
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name'], // Removed 'slug'
+          attributes: ['id', 'name'],
           required: false,
         },
       ],
@@ -120,7 +120,7 @@ class PostService {
     return await this.getPostById(postId);
   }
 
-  async deletePost(postId: string, userId: string) {
+  async deletePost(postId: string, userId: string, userRole?: string) {
     const post = await Post.findOne({
       where: { id: postId, isDeleted: false },
     });
@@ -129,7 +129,11 @@ class PostService {
       throw new Error('Post not found');
     }
 
-    if (post.authorId !== userId) {
+    // Allow deletion if user is the author OR is an admin
+    const isAuthor = post.authorId === userId;
+    const isAdmin = userRole === 'admin';
+
+    if (!isAuthor && !isAdmin) {
       throw new Error('Unauthorized: You can only delete your own posts');
     }
 

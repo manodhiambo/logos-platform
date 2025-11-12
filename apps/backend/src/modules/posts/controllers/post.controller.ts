@@ -6,7 +6,7 @@ export const createPost = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const post = await PostService.createPost(userId, req.body);
-    
+
     res.status(201).json({
       success: true,
       data: post,
@@ -23,18 +23,18 @@ export const createPost = async (req: Request, res: Response) => {
 export const getPosts = async (req: Request, res: Response) => {
   try {
     const { communityId, userId, postType, page = 1, limit = 20 } = req.query;
-    
+
     const filters: any = {};
     if (communityId) filters.communityId = communityId;
     if (userId) filters.userId = userId;
     if (postType) filters.postType = postType;
-    
+
     const result = await PostService.getPosts(
       filters,
       Number(page),
       Number(limit)
     );
-    
+
     res.json({
       success: true,
       data: result,
@@ -52,7 +52,7 @@ export const getPostById = async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
     const post = await PostService.getPostById(postId);
-    
+
     res.json({
       success: true,
       data: post,
@@ -70,9 +70,9 @@ export const updatePost = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { postId } = req.params;
-    
+
     const post = await PostService.updatePost(postId, userId, req.body);
-    
+
     res.json({
       success: true,
       data: post,
@@ -89,10 +89,11 @@ export const updatePost = async (req: Request, res: Response) => {
 export const deletePost = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
+    const userRole = (req as any).user.role;
     const { postId } = req.params;
-    
-    await PostService.deletePost(postId, userId);
-    
+
+    await PostService.deletePost(postId, userId, userRole);
+
     res.json({
       success: true,
       message: 'Post deleted successfully',
@@ -110,9 +111,9 @@ export const likePost = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { postId } = req.params;
-    
+
     const result = await PostLikeService.toggleLike(postId, userId);
-    
+
     res.json({
       success: true,
       data: {
@@ -133,7 +134,7 @@ export const getPostLikes = async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
     const likes = await PostLikeService.getPostLikes(postId);
-    
+
     res.json({
       success: true,
       data: likes,
