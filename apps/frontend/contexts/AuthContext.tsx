@@ -1,26 +1,23 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import apiClient from '@/lib/api-client';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import apiClient from '@/lib/api-client';
 
 interface User {
   id: string;
   email: string;
   username: string;
   fullName: string;
+  role: string;
   avatarUrl?: string;
-  bio?: string;
-  role: 'user' | 'moderator' | 'admin' | 'super_admin';
-  spiritualJourneyStage?: string;
-  denomination?: string;
-  country?: string;
-  timezone?: string;
-  emailVerified: boolean;
-  status: string;
-  preferredBibleTranslation?: string;
-  createdAt: string;
-  updatedAt: string;
+}
+
+interface RegisterData {
+  email: string;
+  username: string;
+  password: string;
+  fullName: string;
 }
 
 interface AuthContextType {
@@ -29,17 +26,7 @@ interface AuthContextType {
   login: (emailOrUsername: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: RegisterData) => Promise<{ needsVerification: boolean }>;
   logout: () => void;
-  isAuthenticated: boolean;
   refreshToken: () => Promise<void>;
-}
-
-interface RegisterData {
-  email: string;
-  username: string;
-  password: string;
-  confirmPassword?: string;
-  fullName: string;
-  spiritualJourneyStage?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,47 +37,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      loadUser();
-    } else {
-      setLoading(false);
-    }
-
-    // Set up token refresh interval (every 14 minutes)
-    const refreshInterval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken) {
-        refreshToken();
+    const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (token && storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          console.error('Failed to parse stored user:', error);
+          localStorage.removeItem('user');
+        }
       }
-    }, 14 * 60 * 1000);
+      
+      setLoading(false);
+    };
 
-    return () => clearInterval(refreshInterval);
+    initAuth();
   }, []);
 
-  const loadUser = async () => {
-    try {
-      const response = await apiClient.get('/auth/me');
-      setUser(response.data.data.user);
-    } catch (error) {
-      console.error('Error loading user:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const login = async (emailOrUsername: string, password: string, rememberMe: boolean = false) => {
-    const response = await apiClient.post('/auth/login', { 
-      emailOrUsername, 
+    const response = await apiClient.post('/auth/login', {
+      emailOrUsername,
       password,
       rememberMe,
     });
     
-    localStorage.setItem('token', response.data.data.accessToken);
-    localStorage.setItem('refreshToken', response.data.data.refreshToken);
-    setUser(response.data.data.user);
+    const { accessToken, refreshToken, user } = response.data.data;
+    
+    // Save to localStorage
+    localStorage.setItem('token', accessToken);
+    localStorage.setItem('refreshToken', refreshToken);
+    localStorage.setItem('user', JSON.stringify(user)); // FIX: Save user data
+    
+    setUser(user);
     router.push('/dashboard');
   };
 
@@ -101,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { needsVerification: true };
     }
     
-    localStorage.setItem('token', response.data.data.token);
-    setUser(response.data.data.user);
+    const { token, user } = response.data.data;
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(user)); // FIX: Save user data
+    setUser(user);
+    
     return { needsVerification: false };
   };
 
@@ -115,8 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken: currentRefreshToken,
       });
 
-      localStorage.setItem('token', response.data.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.data.refreshToken);
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('refreshToken', newRefreshToken);
     } catch (error) {
       console.error('Token refresh failed:', error);
       logout();
@@ -126,23 +110,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user'); // FIX: Also remove user data
     setUser(null);
     router.push('/login');
   };
 
-  const isAuthenticated = !!user;
-
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated, refreshToken }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshToken }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export const useAuth = () => {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-};
+}
