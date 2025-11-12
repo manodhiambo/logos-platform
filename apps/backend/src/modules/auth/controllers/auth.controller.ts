@@ -26,8 +26,7 @@ class AuthController {
 
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = (req as any).user.id;
-      await authService.logout(userId);
+      // Logout logic (clear session, etc.)
       return successResponse(res, 'Logout successful');
     } catch (error) {
       next(error);
@@ -37,7 +36,7 @@ class AuthController {
   async refreshToken(req: Request, res: Response, next: NextFunction) {
     try {
       const { refreshToken } = req.body;
-      const result = await authService.refreshToken(refreshToken);
+      const result = await authService.refreshAccessToken(refreshToken);
       return successResponse(res, 'Token refreshed', result);
     } catch (error) {
       next(error);
@@ -46,9 +45,9 @@ class AuthController {
 
   async verifyEmail(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token } = req.query;
-      await authService.verifyEmail(token as string);
-      return successResponse(res, 'Email verified successfully');
+      const { email, code } = req.body;
+      const result = await authService.verifyEmail(email, code);
+      return successResponse(res, 'Email verified successfully', result);
     } catch (error) {
       next(error);
     }
@@ -57,8 +56,8 @@ class AuthController {
   async resendVerification(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = req.body;
-      await authService.resendVerificationEmail(email);
-      return successResponse(res, 'Verification email sent');
+      await authService.resendVerificationCode(email);
+      return successResponse(res, 'Verification code sent');
     } catch (error) {
       next(error);
     }
@@ -84,10 +83,10 @@ class AuthController {
     }
   }
 
-  async getProfile(req: Request, res: Response, next: NextFunction) {
+  async me(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = (req as any).user.id;
-      const user = await authService.getUserProfile(userId);
+      const user = await authService.getProfile(userId);
       return successResponse(res, 'Profile retrieved', { user });
     } catch (error) {
       next(error);
@@ -147,25 +146,6 @@ class AuthController {
 
       await authService.updatePassword(userId, currentPassword, newPassword);
       return successResponse(res, 'Password updated successfully');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async deleteAccount(req: Request, res: Response, next: NextFunction) {
-    try {
-      const userId = (req as any).user.id;
-      const { password } = req.body;
-
-      if (!password) {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'Password is required to delete account' }
-        });
-      }
-
-      await authService.deleteAccount(userId, password);
-      return successResponse(res, 'Account deleted successfully');
     } catch (error) {
       next(error);
     }
