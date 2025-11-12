@@ -78,6 +78,9 @@ export default function CommunityDetailPage() {
   const loadCommunity = async () => {
     try {
       const data = await communityService.getCommunity(communityId);
+      console.log('=== COMMUNITY DATA ===', data);
+      console.log('isMember:', data.isMember);
+      console.log('userRole:', data.userRole);
       setCommunity(data);
     } catch (error) {
       console.error('Failed to load community:', error);
