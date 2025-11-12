@@ -95,3 +95,13 @@ Comment.init(
 );
 
 export default Comment;
+
+// Import User model for association
+import User from '../../../database/models/user.model';
+import Post from './Post.model';
+
+// Define associations
+Comment.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
+Comment.belongsTo(Post, { foreignKey: 'postId', as: 'post' });
+Comment.belongsTo(Comment, { foreignKey: 'parentCommentId', as: 'parentComment' });
+Comment.hasMany(Comment, { foreignKey: 'parentCommentId', as: 'replies' });
