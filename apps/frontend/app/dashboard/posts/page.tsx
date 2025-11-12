@@ -45,8 +45,14 @@ export default function PostsPage() {
   const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [loadingComments, setLoadingComments] = useState<{ [key: string]: boolean }>({});
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
+    // Get current user from localStorage
+    const user = localStorage.getItem('user');
+    if (user) {
+      setCurrentUser(JSON.parse(user));
+    }
     fetchPosts();
   }, []);
 
@@ -87,6 +93,25 @@ export default function PostsPage() {
       console.error('Failed to like post:', error);
       console.error('Error response:', error.response);
       alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to like post');
+    }
+  };
+
+  const deletePost = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      console.log('Deleting post:', postId);
+      await apiClient.delete(`/posts/${postId}`);
+      
+      // Remove post from the list
+      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+      alert('Post deleted successfully! ✅');
+    } catch (error: any) {
+      console.error('Failed to delete post:', error);
+      console.error('Error response:', error.response);
+      alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to delete post');
     }
   };
 
@@ -153,6 +178,12 @@ export default function PostsPage() {
     }
   };
 
+  const canDeletePost = (post: Post) => {
+    if (!currentUser) return false;
+    // User can delete if they're the author or an admin
+    return post.author.id === currentUser.id || currentUser.role === 'admin';
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -196,14 +227,26 @@ export default function PostsPage() {
                   {post.author?.fullName?.[0] || post.author?.username?.[0] || 'U'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-gray-900">
-                      {post.author?.fullName || post.author?.username || 'Anonymous'}
-                    </h3>
-                    {post.community && (
-                      <span className="text-sm text-gray-500">
-                        in <span className="font-medium text-blue-600">{post.community.name}</span>
-                      </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900">
+                        {post.author?.fullName || post.author?.username || 'Anonymous'}
+                      </h3>
+                      {post.community && (
+                        <span className="text-sm text-gray-500">
+                          in <span className="font-medium text-blue-600">{post.community.name}</span>
+                        </span>
+                      )}
+                    </div>
+                    {canDeletePost(post) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deletePost(post.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        🗑️ Delete
+                      </Button>
                     )}
                   </div>
                   <p className="text-sm text-gray-500">
