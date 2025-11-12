@@ -36,6 +36,7 @@ export interface Announcement {
   priority: string;
   status: string;
   isGlobal: boolean;
+  isActive?: boolean;  // Added this
   createdBy: string;
   publishedAt?: string;
   expiresAt?: string;
@@ -99,7 +100,7 @@ class AdminService {
     return response.data.data;
   }
 
-  async updateAnnouncement(announcementId: string, data: Partial<Announcement>) {
+  async updateAnnouncement(announcementId: string, data: any) {
     const response = await apiClient.put(`/admin/announcements/${announcementId}`, data);
     return response.data.data;
   }
