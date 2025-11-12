@@ -1,42 +1,30 @@
-import apiClient from '@/lib/api-client';
+import apiClient from '../api-client';
 
 export interface Community {
   id: string;
   name: string;
   description: string;
-  category: string;
-  imageUrl?: string;
-  isPrivate: boolean;
+  category?: string;
+  privacyLevel?: string;
+  avatarUrl?: string;
   memberCount?: number;
-  createdBy: string;
-  createdAt: string;
-  isMember?: boolean;
-}
-
-export interface CommunityMember {
-  id: string;
-  userId: string;
-  communityId: string;
-  role: 'admin' | 'moderator' | 'member';
-  joinedAt: string;
-  user?: {
-    id: string;
-    fullName: string;
-    username: string;
-    avatarUrl?: string;
-  };
+  postCount?: number;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateCommunityData {
   name: string;
   description: string;
-  category: string;
-  isPrivate: boolean;
+  category?: string;
+  privacyLevel?: 'public' | 'private';
 }
 
 class CommunityService {
   async getCommunities(params?: { search?: string; category?: string }) {
     const response = await apiClient.get('/communities', { params });
+    // Backend returns { message, data: communities[], pagination }
     return response.data.data;
   }
 
@@ -81,14 +69,6 @@ class CommunityService {
     const response = await apiClient.get(`/communities/${communityId}/members`);
     return response.data.data;
   }
-
-  async updateMemberRole(communityId: string, memberId: string, role: string) {
-    const response = await apiClient.put(
-      `/communities/${communityId}/members/${memberId}/role`,
-      { role }
-    );
-    return response.data.data;
-  }
 }
 
-export const communityService = new CommunityService();
+export default new CommunityService();
