@@ -41,7 +41,7 @@ class VideoCallService {
 
       const call = await VideoCall.create({
         channelName,
-        hostId,
+        createdBy: hostId, // Changed from hostId
         type: callData.type || 'group',
         purpose: callData.purpose || 'general',
         status: callData.scheduledAt ? 'scheduled' as any : 'active' as any,
@@ -105,7 +105,7 @@ class VideoCallService {
       }
 
       if (call.status === 'scheduled') {
-        await call.update({ 
+        await call.update({
           status: 'active' as any,
           startedAt: new Date()
         });
@@ -138,7 +138,7 @@ class VideoCallService {
       }
 
       const leftAt = new Date();
-      const duration = participant.joinedAt 
+      const duration = participant.joinedAt
         ? Math.floor((leftAt.getTime() - participant.joinedAt.getTime()) / 1000)
         : 0;
 
@@ -155,9 +155,8 @@ class VideoCallService {
 
   async getActiveParticipantCount(callId: string): Promise<number> {
     try {
-      // Use raw query to count participants where left_at IS NULL
       const result = await sequelize.query(
-        `SELECT COUNT(*) as count FROM call_participants 
+        `SELECT COUNT(*) as count FROM call_participants
          WHERE call_id = :callId AND left_at IS NULL`,
         {
           replacements: { callId },
@@ -180,7 +179,7 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'host',
+          as: 'creator', // Changed from 'host'
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ],
@@ -189,7 +188,6 @@ class VideoCallService {
       order: [['startedAt', 'DESC']],
     });
 
-    // Get active participant counts for each call
     for (const call of calls) {
       const participantCount = await this.getActiveParticipantCount(call.id);
       (call as any).participantCount = participantCount;
@@ -214,7 +212,7 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'host',
+          as: 'creator', // Changed from 'host'
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ],
@@ -246,7 +244,7 @@ class VideoCallService {
           include: [
             {
               model: User,
-              as: 'host',
+              as: 'creator', // Changed from 'host'
               attributes: ['id', 'username', 'fullName'],
             }
           ],
@@ -273,20 +271,18 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'host',
+          as: 'creator', // Changed from 'host'
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ]
     });
 
     if (call) {
-      // Add active participant count
       const participantCount = await this.getActiveParticipantCount(call.id);
       (call as any).participantCount = participantCount;
 
-      // Get list of active participants
       const participants = await CallParticipant.findAll({
-        where: { 
+        where: {
           callId: call.id,
           leftAt: { [Op.is]: null } as any
         },
@@ -307,18 +303,17 @@ class VideoCallService {
   async endCall(callId: string, userId: string) {
     const call = await VideoCall.findByPk(callId);
     if (!call) throw new Error('Call not found');
-    if (call.hostId !== userId) throw new Error('Only host can end call');
-    
+    if (call.createdBy !== userId) throw new Error('Only host can end call'); // Changed from hostId
+
     await call.update({ status: 'ended' as any, endedAt: new Date() });
-    
-    // Mark all active participants as left
+
     await CallParticipant.update(
-      { 
+      {
         leftAt: new Date(),
         duration: sequelize.literal('EXTRACT(EPOCH FROM (NOW() - joined_at))::INTEGER')
       },
-      { 
-        where: { 
+      {
+        where: {
           callId,
           leftAt: { [Op.is]: null } as any
         } as any
@@ -343,7 +338,7 @@ class VideoCallService {
 
   async getCallParticipants(callId: string) {
     const participants = await CallParticipant.findAll({
-      where: { 
+      where: {
         callId,
         leftAt: { [Op.is]: null } as any
       },
