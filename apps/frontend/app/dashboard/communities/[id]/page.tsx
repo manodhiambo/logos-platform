@@ -63,9 +63,13 @@ export default function CommunityDetailPage() {
   const loadPosts = async () => {
     try {
       const data = await postService.getCommunityPosts(communityId);
-      setPosts(data);
+      console.log('Posts data:', data);
+      // Handle different response structures
+      const postsArray = Array.isArray(data) ? data : (data?.posts || []);
+      setPosts(postsArray);
     } catch (error) {
       console.error('Failed to load posts:', error);
+      setPosts([]);
     }
   };
 
@@ -75,7 +79,7 @@ export default function CommunityDetailPage() {
       alert('Successfully joined! 🎉');
       loadCommunity();
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to join';
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to join';
       alert(`Error: ${errorMsg}`);
     }
   };
