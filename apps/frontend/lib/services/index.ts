@@ -1,4 +1,4 @@
-// Import named exports from each service
+// Re-export all services as named exports
 export { communityService } from './community.service';
 export { prayerService } from './prayer.service';
 export { devotionalService } from './devotional.service';

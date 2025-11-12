@@ -89,3 +89,5 @@ class MessageService {
 }
 
 export default new MessageService();
+
+export const messageService = new MessageService();

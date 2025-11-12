@@ -201,3 +201,5 @@ class FriendshipService {
 }
 
 export default new FriendshipService();
+
+export const friendshipService = new FriendshipService();
