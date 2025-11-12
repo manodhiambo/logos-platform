@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminService } from '../services/admin.service';
+import adminService from '../services/admin.service';
 import { AppError } from '../../../shared/middlewares/error-handler.middleware';
 
 class AdminController {
