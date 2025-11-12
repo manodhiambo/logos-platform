@@ -108,7 +108,7 @@ AIMessage.belongsTo(AIConversation, { foreignKey: 'conversationId', as: 'convers
 Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
 
 // ==================== VideoCall Associations ====================
-VideoCall.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+VideoCall.belongsTo(User, { foreignKey: 'hostId', as: 'host' });
 VideoCall.hasMany(CallParticipant, { foreignKey: 'callId', as: 'participants' });
 
 // ==================== CallParticipant Associations ====================

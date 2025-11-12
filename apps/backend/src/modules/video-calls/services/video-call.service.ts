@@ -41,7 +41,7 @@ class VideoCallService {
 
       const call = await VideoCall.create({
         channelName,
-        createdBy: hostId, // Changed from hostId
+        hostId, // Keep as hostId
         type: callData.type || 'group',
         purpose: callData.purpose || 'general',
         status: callData.scheduledAt ? 'scheduled' as any : 'active' as any,
@@ -179,7 +179,7 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'creator', // Changed from 'host'
+          as: 'host',
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ],
@@ -212,7 +212,7 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'creator', // Changed from 'host'
+          as: 'host',
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ],
@@ -244,7 +244,7 @@ class VideoCallService {
           include: [
             {
               model: User,
-              as: 'creator', // Changed from 'host'
+              as: 'host',
               attributes: ['id', 'username', 'fullName'],
             }
           ],
@@ -271,7 +271,7 @@ class VideoCallService {
       include: [
         {
           model: User,
-          as: 'creator', // Changed from 'host'
+          as: 'host',
           attributes: ['id', 'username', 'fullName', 'avatarUrl'],
         }
       ]
@@ -303,7 +303,7 @@ class VideoCallService {
   async endCall(callId: string, userId: string) {
     const call = await VideoCall.findByPk(callId);
     if (!call) throw new Error('Call not found');
-    if (call.createdBy !== userId) throw new Error('Only host can end call'); // Changed from hostId
+    if (call.hostId !== userId) throw new Error('Only host can end call'); // Keep as hostId
 
     await call.update({ status: 'ended' as any, endedAt: new Date() });
 
