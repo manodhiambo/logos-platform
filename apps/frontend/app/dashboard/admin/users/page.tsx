@@ -28,7 +28,7 @@ export default function AdminUsersPage() {
       if (statusFilter !== 'all') params.status = statusFilter;
 
       const data = await adminService.getAllUsers(params);
-      setUsers(data.users || []);
+      setUsers(data.data || []);
     } catch (error: any) {
       console.error('Failed to load users:', error);
       if (error.response?.status === 403) {

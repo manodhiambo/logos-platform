@@ -2,60 +2,50 @@ import apiClient from '@/lib/api-client';
 
 export interface AdminUser {
   id: string;
-  email: string;
   username: string;
+  email: string;
   fullName: string;
   role: string;
   status: string;
-  emailVerified: boolean;
   createdAt: string;
-  lastLoginAt?: string;
+}
+
+export interface CreateUserData {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+  role?: string;
+}
+
+export interface SystemStats {
+  totalUsers: number;
+  activeUsersToday: number;
+  totalCommunities: number;
+  totalPrayers: number;
+  totalPosts: number;
+  pendingModeration: number;
+  newUsersToday: number;
 }
 
 export interface Announcement {
   id: string;
   title: string;
   content: string;
-  type: 'info' | 'warning' | 'success' | 'error';
-  isActive: boolean;
-  expiresAt?: string;
+  type: string;
+  priority: string;
+  status: string;
+  isGlobal: boolean;
   createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SystemStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalCommunities: number;
-  totalPosts: number;
-  totalPrayers: number;
-  totalDevotionals: number;
-  newUsersThisMonth: number;
-  activeUsersThisWeek: number;
-}
-
-export interface CreateUserData {
-  email: string;
-  username: string;
-  fullName: string;
-  password: string;
-  role: string;
-}
-
-export interface CreateAnnouncementData {
-  title: string;
-  content: string;
-  type: 'info' | 'warning' | 'success' | 'error';
-  isActive: boolean;
+  publishedAt?: string;
   expiresAt?: string;
+  createdAt: string;
 }
 
 class AdminService {
-  // User Management
   async getAllUsers(params?: { page?: number; limit?: number; role?: string; status?: string }) {
     const response = await apiClient.get('/admin/users', { params });
-    return response.data.data;
+    return response.data;
   }
 
   async getUserById(userId: string) {
@@ -73,28 +63,43 @@ class AdminService {
     return response.data.data;
   }
 
-  async updateUserStatus(userId: string, status: string) {
-    const response = await apiClient.put(`/admin/users/${userId}/status`, { status });
+  async updateUserStatus(userId: string, status: string, reason?: string) {
+    const response = await apiClient.put(`/admin/users/${userId}/status`, { status, reason });
     return response.data.data;
   }
 
-  async deleteUser(userId: string) {
-    const response = await apiClient.delete(`/admin/users/${userId}`);
+  async deleteUser(userId: string, deleteType?: string, reason?: string) {
+    const response = await apiClient.delete(`/admin/users/${userId}`, {
+      data: { deleteType, reason }
+    });
     return response.data;
   }
 
-  // Announcements
-  async getAllAnnouncements() {
-    const response = await apiClient.get('/admin/announcements');
+  async getSystemStats() {
+    const response = await apiClient.get('/admin/stats');
     return response.data.data;
   }
 
-  async createAnnouncement(data: CreateAnnouncementData) {
+  // Announcements
+  async getAllAnnouncements(params?: { page?: number; limit?: number }) {
+    const response = await apiClient.get('/admin/announcements', { params });
+    return response.data;
+  }
+
+  async createAnnouncement(data: {
+    title: string;
+    content: string;
+    type?: string;
+    priority?: string;
+    status?: string;
+    isGlobal?: boolean;
+    expiresAt?: string;
+  }) {
     const response = await apiClient.post('/admin/announcements', data);
     return response.data.data;
   }
 
-  async updateAnnouncement(announcementId: string, data: Partial<CreateAnnouncementData>) {
+  async updateAnnouncement(announcementId: string, data: Partial<Announcement>) {
     const response = await apiClient.put(`/admin/announcements/${announcementId}`, data);
     return response.data.data;
   }
@@ -102,12 +107,6 @@ class AdminService {
   async deleteAnnouncement(announcementId: string) {
     const response = await apiClient.delete(`/admin/announcements/${announcementId}`);
     return response.data;
-  }
-
-  // System Stats
-  async getSystemStats() {
-    const response = await apiClient.get('/admin/stats');
-    return response.data.data;
   }
 }
 
