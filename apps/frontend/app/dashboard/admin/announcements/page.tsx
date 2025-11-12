@@ -301,7 +301,7 @@ function AnnouncementCard({ announcement, onToggleActive, onDelete }: Announceme
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onToggleActive(announcement.id, announcement.isActive)}
+            onClick={() => onToggleActive(announcement.id, announcement.isActive ?? false)}
           >
             {announcement.isActive ? '👁️ Hide' : '👁️‍🗨️ Show'}
           </Button>

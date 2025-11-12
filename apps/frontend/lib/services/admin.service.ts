@@ -26,6 +26,12 @@ export interface SystemStats {
   totalPosts: number;
   pendingModeration: number;
   newUsersToday: number;
+  // Optional fields that may or may not be returned
+  totalDevotionals?: number;
+  totalEvents?: number;
+  totalVideoCalls?: number;
+  activeUsersTodayThisWeek?: number;
+  newUsersThisMonth?: number;
 }
 
 export interface Announcement {
@@ -36,7 +42,7 @@ export interface Announcement {
   priority: string;
   status: string;
   isGlobal: boolean;
-  isActive?: boolean;  // Added this
+  isActive?: boolean;
   createdBy: string;
   publishedAt?: string;
   expiresAt?: string;

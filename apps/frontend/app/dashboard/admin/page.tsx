@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
                   <StatCard
                     icon="✅"
                     label="Active Users"
-                    value={stats.activeUsers.toLocaleString()}
+                    value={stats.activeUsersToday.toLocaleString()}
                     color="green"
                   />
                   <StatCard
@@ -140,19 +140,19 @@ export default function AdminDashboardPage() {
                   <StatCard
                     icon="📖"
                     label="Devotionals"
-                    value={stats.totalDevotionals.toLocaleString()}
+                    value={stats.totalDevotionals?.toLocaleString() || "0"}
                     color="indigo"
                   />
                   <StatCard
                     icon="🆕"
                     label="New This Month"
-                    value={stats.newUsersThisMonth.toLocaleString()}
+                    value={stats.newUsersThisMonth?.toLocaleString() || "0"}
                     color="cyan"
                   />
                   <StatCard
                     icon="🔥"
                     label="Active This Week"
-                    value={stats.activeUsersThisWeek.toLocaleString()}
+                    value={stats.activeUsersTodayThisWeek?.toLocaleString() || "0"}
                     color="red"
                   />
                 </div>
