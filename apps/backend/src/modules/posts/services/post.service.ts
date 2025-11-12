@@ -46,7 +46,7 @@ class PostService {
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name', 'slug'],
+          attributes: ['id', 'name'], // Removed 'slug'
           required: false,
         },
       ],
@@ -85,7 +85,7 @@ class PostService {
         {
           model: Community,
           as: 'community',
-          attributes: ['id', 'name', 'slug'],
+          attributes: ['id', 'name'], // Removed 'slug'
           required: false,
         },
       ],
