@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import AnnouncementBanner from '@/components/announcements/AnnouncementBanner';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -132,7 +133,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               Dashboard
             </NavLink>
             <NavLink href="/dashboard/profile" icon="👤">
-              Profile
+              My Profile
             </NavLink>
             <NavLink href="/dashboard/messages" icon="💬">
               Messages
@@ -143,26 +144,48 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/dashboard/ai-assistant" icon="🤖">
               AI Assistant
             </NavLink>
-            
+
+            <div className="border-t border-slate-200 my-2 pt-2">
+              <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
+                🤝 Social
+              </p>
+            </div>
+
+            <NavLink href="/dashboard/friends" icon="👥">
+              Friends
+            </NavLink>
+            <NavLink href="/dashboard/friends/requests" icon="📨">
+              Friend Requests
+            </NavLink>
+            <NavLink href="/dashboard/friends/find" icon="🔍">
+              Find Friends
+            </NavLink>
+            <NavLink href="/dashboard/followers" icon="👁️">
+              Followers
+            </NavLink>
+            <NavLink href="/dashboard/following" icon="➕">
+              Following
+            </NavLink>
+
             <div className="border-t border-slate-200 my-2 pt-2">
               <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
                 Community
               </p>
             </div>
-            
-            <NavLink href="/dashboard/communities" icon="👥">
+
+            <NavLink href="/dashboard/communities" icon="🏘️">
               Communities
             </NavLink>
             <NavLink href="/dashboard/posts" icon="📝">
               Posts
             </NavLink>
-            
+
             <div className="border-t border-slate-200 my-2 pt-2">
               <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
                 Spiritual
               </p>
             </div>
-            
+
             <NavLink href="/dashboard/prayers" icon="🙏">
               Prayer Requests
             </NavLink>
@@ -172,20 +195,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <NavLink href="/dashboard/bible" icon="📕">
               Bible
             </NavLink>
-            
+
             <div className="border-t border-slate-200 my-2 pt-2">
               <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
                 Media
               </p>
             </div>
-            
+
             <NavLink href="/dashboard/video-calls" icon="🎥">
               Video Calls
             </NavLink>
             <NavLink href="/dashboard/notifications" icon="🔔">
               Notifications
             </NavLink>
-            
+
             {isAdmin && (
               <>
                 <div className="border-t border-slate-200 my-2 pt-2">
@@ -204,7 +227,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </NavLink>
               </>
             )}
-            
+
             <div className="border-t border-slate-200 my-2 pt-2 lg:hidden">
               <Button variant="outline" size="sm" onClick={logout} className="w-full">
                 Logout
@@ -216,6 +239,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Main Content */}
         <main className="flex-1 min-h-screen lg:ml-0" style={{ marginTop: '0' }}>
           <div className="p-4 sm:p-6 lg:p-8">
+            {/* Admin Announcements Banner */}
+            <AnnouncementBanner />
+            
             {children}
           </div>
         </main>

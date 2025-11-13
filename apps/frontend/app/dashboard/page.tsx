@@ -218,7 +218,7 @@ export default function DashboardPage() {
       icon: '👥',
       title: 'Friend Requests',
       description: 'Pending requests',
-      href: '/dashboard/profile',
+      href: '/dashboard/friends/requests',
       badge: stats.pendingFriendRequests,
       color: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
     },
@@ -254,7 +254,7 @@ export default function DashboardPage() {
       icon: '👤',
       title: 'Find Friends',
       description: 'Connect with users',
-      href: '/dashboard/profile',
+      href: '/dashboard/friends/requests',
       color: 'bg-pink-50 hover:bg-pink-100 border-pink-200',
     },
     {
@@ -387,7 +387,7 @@ export default function DashboardPage() {
             <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
               🌟 Discover Users
             </h2>
-            <Link href="/dashboard/profile">
+            <Link href="/dashboard/friends">
               <Button variant="outline" size="sm">See All</Button>
             </Link>
           </div>
@@ -475,7 +475,7 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-500">{stats.totalFriends} connected</div>
                 </div>
               </div>
-              <Link href="/dashboard/profile">
+              <Link href="/dashboard/friends">
                 <Button variant="ghost" size="sm">View</Button>
               </Link>
             </div>
@@ -490,7 +490,7 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-500">{stats.totalFollowers} followers</div>
                 </div>
               </div>
-              <Link href="/dashboard/profile">
+              <Link href="/dashboard/friends">
                 <Button variant="ghost" size="sm">View</Button>
               </Link>
             </div>
@@ -505,7 +505,7 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-500">{stats.totalFollowing} following</div>
                 </div>
               </div>
-              <Link href="/dashboard/profile">
+              <Link href="/dashboard/friends">
                 <Button variant="ghost" size="sm">View</Button>
               </Link>
             </div>
@@ -607,7 +607,7 @@ export default function DashboardPage() {
           ) : (
             <div className="text-center py-8 text-slate-500">
               <p className="mb-3">No messages yet</p>
-              <Link href="/dashboard/profile">
+              <Link href="/dashboard/friends">
                 <Button>Find Friends to Chat</Button>
               </Link>
             </div>
