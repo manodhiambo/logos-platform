@@ -67,7 +67,6 @@ export const getUsersListSchema = Joi.object({
 });
 
 // Create announcement validation
-// Create announcement validation
 export const createAnnouncementSchema = Joi.object({
   body: Joi.object({
     title: Joi.string().max(255).required().messages({
@@ -77,11 +76,10 @@ export const createAnnouncementSchema = Joi.object({
     content: Joi.string().required().messages({
       'any.required': 'Content is required',
     }),
-    type: Joi.string().valid('general', 'maintenance', 'feature', 'event', 'urgent').optional().default('general'),
-    priority: Joi.number().integer().min(1).max(5).optional().default(3),
+    type: Joi.string().valid('info', 'warning', 'urgent', 'maintenance').optional().default('info'),
+    priority: Joi.string().valid('low', 'medium', 'high').optional().default('medium'),
     status: Joi.string().valid('draft', 'published', 'archived').optional().default('draft'),
     isGlobal: Joi.boolean().optional().default(true),
-    targetCommunityId: Joi.string().uuid().optional().allow(null),
     expiresAt: Joi.date().iso().optional().allow(null),
   }),
 });
@@ -94,14 +92,12 @@ export const updateAnnouncementSchema = Joi.object({
   body: Joi.object({
     title: Joi.string().max(255).optional(),
     content: Joi.string().optional(),
-    type: Joi.string().valid('general', 'maintenance', 'feature', 'event', 'urgent').optional(),
-    priority: Joi.number().integer().min(1).max(5).optional(),
+    type: Joi.string().valid('info', 'warning', 'urgent', 'maintenance').optional(),
+    priority: Joi.string().valid('low', 'medium', 'high').optional(),
     status: Joi.string().valid('draft', 'published', 'archived').optional(),
     isGlobal: Joi.boolean().optional(),
-    targetCommunityId: Joi.string().uuid().optional().allow(null),
     expiresAt: Joi.date().iso().optional().allow(null),
   }),
-});
 });
 
 // Create user validation
