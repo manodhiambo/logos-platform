@@ -2,6 +2,7 @@ import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { validationResult, ValidationChain } from 'express-validator';
 import Joi from 'joi';
 import { AppError } from './error-handler.middleware';
+import { logger } from '../utils/logger.util';
 
 // Express-validator validation middleware (for arrays of validation chains)
 export const validate: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
@@ -13,11 +14,12 @@ export const validate: RequestHandler = (req: Request, res: Response, next: Next
       message: error.msg,
     }));
     
+    logger.error('Validation errors:', formattedErrors);
+    
     const appError = new AppError('Validation failed', 400);
     (appError as any).details = formattedErrors;
     return next(appError);
   }
-  
   next();
 };
 
@@ -35,13 +37,21 @@ export const validateWithJoi = (schema: Joi.ObjectSchema): RequestHandler => {
         stripUnknown: true,
       }
     );
-
+    
     if (error) {
       const errors = error.details.map(detail => ({
         field: detail.path.join('.'),
         message: detail.message,
       }));
-
+      
+      // Log the validation errors with the request body
+      logger.error('Joi validation failed:', {
+        errors,
+        requestBody: req.body,
+        requestQuery: req.query,
+        requestParams: req.params,
+      });
+      
       const appError = new AppError('Validation failed', 400);
       (appError as any).details = errors;
       return next(appError);
@@ -51,7 +61,7 @@ export const validateWithJoi = (schema: Joi.ObjectSchema): RequestHandler => {
     req.body = value.body;
     req.query = value.query;
     req.params = value.params;
-
+    
     next();
   };
 };
