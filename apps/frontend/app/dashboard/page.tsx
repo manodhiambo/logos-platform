@@ -254,7 +254,7 @@ export default function DashboardPage() {
       icon: '👤',
       title: 'Find Friends',
       description: 'Connect with users',
-      href: '/dashboard/friends/requests',
+      href: '/dashboard/friends/find',
       color: 'bg-pink-50 hover:bg-pink-100 border-pink-200',
     },
     {
@@ -490,7 +490,7 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-500">{stats.totalFollowers} followers</div>
                 </div>
               </div>
-              <Link href="/dashboard/friends">
+              <Link href="/dashboard/followers">
                 <Button variant="ghost" size="sm">View</Button>
               </Link>
             </div>
@@ -505,7 +505,7 @@ export default function DashboardPage() {
                   <div className="text-sm text-slate-500">{stats.totalFollowing} following</div>
                 </div>
               </div>
-              <Link href="/dashboard/friends">
+              <Link href="/dashboard/following">
                 <Button variant="ghost" size="sm">View</Button>
               </Link>
             </div>
