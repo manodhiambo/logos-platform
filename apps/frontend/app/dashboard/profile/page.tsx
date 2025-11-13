@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar } from '@/components/ui/avatar';
 
 export default function ProfilePage() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +58,6 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      // Update localStorage with new user data
       const updatedUser = response.data.data.user;
       const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
       const newUser = { ...currentUser, ...updatedUser };
@@ -81,10 +80,9 @@ export default function ProfilePage() {
       alert('Profile updated successfully! ✅');
       setEditing(false);
       
-      // Update user in context
       const updatedUser = { ...user, ...formData };
-      setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      window.location.reload();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -122,10 +120,13 @@ export default function ProfilePage() {
               onChange={handleAvatarUpload}
               disabled={uploading}
             />
-            <label htmlFor="avatar-upload">
-              <Button as="span" disabled={uploading} className="cursor-pointer">
-                {uploading ? 'Uploading...' : '📸 Change Photo'}
-              </Button>
+            <label 
+              htmlFor="avatar-upload" 
+              className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 ${
+                uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              }`}
+            >
+              {uploading ? 'Uploading...' : '📸 Change Photo'}
             </label>
           </div>
         </div>
