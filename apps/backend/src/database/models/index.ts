@@ -35,7 +35,7 @@ User.hasMany(Devotional, { foreignKey: 'authorId', as: 'devotionals' });
 User.hasMany(UserDevotionalProgress, { foreignKey: 'userId', as: 'devotionalProgress' });
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 User.hasMany(AIConversation, { foreignKey: 'userId', as: 'aiConversations' });
-User.hasMany(Announcement, { foreignKey: 'createdBy', as: 'announcements' });
+User.hasMany(Announcement, { foreignKey: 'authorId', as: 'announcements' });
 User.hasMany(VideoCall, { foreignKey: 'hostId', as: 'createdVideoCalls' });
 User.hasMany(CallParticipant, { foreignKey: 'userId', as: 'callParticipations' });
 User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'sentFriendRequests' });
@@ -105,7 +105,7 @@ AIConversation.hasMany(AIMessage, { foreignKey: 'conversationId', as: 'messages'
 AIMessage.belongsTo(AIConversation, { foreignKey: 'conversationId', as: 'conversation' });
 
 // ==================== Announcement Associations ====================
-Announcement.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Announcement.belongsTo(User, { foreignKey: 'authorId', as: 'creator' });
 
 // ==================== VideoCall Associations ====================
 VideoCall.belongsTo(User, { foreignKey: 'hostId', as: 'host' });

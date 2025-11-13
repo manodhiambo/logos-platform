@@ -253,7 +253,7 @@ class AdminService {
       include: [
         {
           model: User,
-          as: 'creator', // Changed from 'author' to 'creator'
+          as: 'creator',
           attributes: ['id', 'username', 'fullName'],
         },
       ],
