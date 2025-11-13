@@ -191,7 +191,7 @@ class AdminService {
   async createAnnouncement(adminId: string, announcementData: any) {
     const announcement = await Announcement.create({
       ...announcementData,
-      createdBy: adminId, // Changed from authorId to createdBy
+      authorId: adminId,
       publishedAt: announcementData.status === 'published' ? new Date() : null,
     });
 
