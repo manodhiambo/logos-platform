@@ -16,8 +16,10 @@ export default function AnnouncementsPage() {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    type: 'info' as 'info' | 'warning' | 'success' | 'error',
-    isActive: true,
+    type: 'general' as 'general' | 'maintenance' | 'feature' | 'event' | 'urgent',
+    priority: 3,
+    status: 'published' as 'draft' | 'published' | 'archived',
+    isGlobal: true,
     expiresAt: '',
   });
   const [saving, setSaving] = useState(false);
@@ -46,27 +48,47 @@ export default function AnnouncementsPage() {
     e.preventDefault();
     try {
       setSaving(true);
-      await adminService.createAnnouncement(formData);
+      
+      // Prepare data for backend
+      const announcementData: any = {
+        title: formData.title,
+        content: formData.content,
+        type: formData.type,
+        priority: formData.priority,
+        status: formData.status,
+        isGlobal: formData.isGlobal,
+      };
+      
+      // Only add expiresAt if provided
+      if (formData.expiresAt) {
+        announcementData.expiresAt = new Date(formData.expiresAt).toISOString();
+      }
+      
+      await adminService.createAnnouncement(announcementData);
       setShowCreateForm(false);
       setFormData({
         title: '',
         content: '',
-        type: 'info',
-        isActive: true,
+        type: 'general',
+        priority: 3,
+        status: 'published',
+        isGlobal: true,
         expiresAt: '',
       });
       await loadAnnouncements();
-      alert('Announcement created successfully!');
+      alert('Announcement created successfully! 🎉');
     } catch (error: any) {
+      console.error('Create announcement error:', error);
       alert(error.response?.data?.message || 'Failed to create announcement');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggleActive = async (announcementId: string, currentStatus: boolean) => {
+  const handleToggleStatus = async (announcementId: string, currentStatus: string) => {
     try {
-      await adminService.updateAnnouncement(announcementId, { isActive: !currentStatus });
+      const newStatus = currentStatus === 'published' ? 'archived' : 'published';
+      await adminService.updateAnnouncement(announcementId, { status: newStatus });
       await loadAnnouncements();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to update announcement');
@@ -94,7 +116,7 @@ export default function AnnouncementsPage() {
             <Button variant="outline" onClick={() => router.back()}>
               ← Back to Admin
             </Button>
-            <h1 className="text-3xl font-bold text-slate-900 mt-4">Announcements</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mt-4">📢 Announcements</h1>
             <p className="text-slate-600 mt-2">Manage platform-wide announcements</p>
           </div>
           <Button onClick={() => setShowCreateForm(true)}>
@@ -144,7 +166,7 @@ export default function AnnouncementsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <label htmlFor="type" className="text-sm font-medium">
                       Type *
@@ -155,16 +177,36 @@ export default function AnnouncementsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          type: e.target.value as 'info' | 'warning' | 'success' | 'error',
+                          type: e.target.value as any,
                         })
                       }
                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                       disabled={saving}
                     >
-                      <option value="info">ℹ️ Info</option>
-                      <option value="success">✅ Success</option>
-                      <option value="warning">⚠️ Warning</option>
-                      <option value="error">❌ Error</option>
+                      <option value="general">📢 General</option>
+                      <option value="maintenance">🔧 Maintenance</option>
+                      <option value="feature">✨ Feature</option>
+                      <option value="event">🎉 Event</option>
+                      <option value="urgent">🚨 Urgent</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="priority" className="text-sm font-medium">
+                      Priority *
+                    </label>
+                    <select
+                      id="priority"
+                      value={formData.priority}
+                      onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={saving}
+                    >
+                      <option value="1">1 - Lowest</option>
+                      <option value="2">2 - Low</option>
+                      <option value="3">3 - Medium</option>
+                      <option value="4">4 - High</option>
+                      <option value="5">5 - Highest</option>
                     </select>
                   </div>
 
@@ -182,22 +224,41 @@ export default function AnnouncementsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                    className="w-4 h-4 text-primary focus:ring-primary"
-                    disabled={saving}
-                  />
-                  <div>
-                    <label htmlFor="isActive" className="font-medium cursor-pointer">
-                      Active
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-4 border border-slate-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      id="isGlobal"
+                      checked={formData.isGlobal}
+                      onChange={(e) => setFormData({ ...formData, isGlobal: e.target.checked })}
+                      className="w-4 h-4 text-primary focus:ring-primary"
+                      disabled={saving}
+                    />
+                    <div>
+                      <label htmlFor="isGlobal" className="font-medium cursor-pointer">
+                        Global Announcement
+                      </label>
+                      <p className="text-sm text-slate-500">
+                        Show this announcement to all users across all communities
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="status" className="text-sm font-medium">
+                      Status *
                     </label>
-                    <p className="text-sm text-slate-500">
-                      Display this announcement to users immediately
-                    </p>
+                    <select
+                      id="status"
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={saving}
+                    >
+                      <option value="draft">📝 Draft (not visible)</option>
+                      <option value="published">✅ Published (visible to users)</option>
+                      <option value="archived">📦 Archived (hidden)</option>
+                    </select>
                   </div>
                 </div>
 
@@ -243,7 +304,7 @@ export default function AnnouncementsPage() {
                   <AnnouncementCard
                     key={announcement.id}
                     announcement={announcement}
-                    onToggleActive={handleToggleActive}
+                    onToggleStatus={handleToggleStatus}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -258,24 +319,26 @@ export default function AnnouncementsPage() {
 
 interface AnnouncementCardProps {
   announcement: Announcement;
-  onToggleActive: (id: string, currentStatus: boolean) => void;
+  onToggleStatus: (id: string, currentStatus: string) => void;
   onDelete: (id: string) => void;
 }
 
-function AnnouncementCard({ announcement, onToggleActive, onDelete }: AnnouncementCardProps) {
+function AnnouncementCard({ announcement, onToggleStatus, onDelete }: AnnouncementCardProps) {
   const typeStyles: Record<string, { bg: string; border: string; icon: string }> = {
-    info: { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'ℹ️' },
-    success: { bg: 'bg-green-50', border: 'border-green-200', icon: '✅' },
-    warning: { bg: 'bg-yellow-50', border: 'border-yellow-200', icon: '⚠️' },
-    error: { bg: 'bg-red-50', border: 'border-red-200', icon: '❌' },
+    general: { bg: 'bg-blue-50', border: 'border-blue-200', icon: '📢' },
+    maintenance: { bg: 'bg-orange-50', border: 'border-orange-200', icon: '🔧' },
+    feature: { bg: 'bg-green-50', border: 'border-green-200', icon: '✨' },
+    event: { bg: 'bg-purple-50', border: 'border-purple-200', icon: '🎉' },
+    urgent: { bg: 'bg-red-50', border: 'border-red-200', icon: '🚨' },
   };
 
-  const style = typeStyles[announcement.type] || typeStyles.info;
+  const style = typeStyles[announcement.type] || typeStyles.general;
+  const isPublished = announcement.status === 'published';
 
   return (
     <div
       className={`p-4 rounded-lg border-2 ${style.bg} ${style.border} ${
-        !announcement.isActive ? 'opacity-50' : ''
+        !isPublished ? 'opacity-50' : ''
       }`}
     >
       <div className="flex items-start justify-between">
@@ -283,9 +346,12 @@ function AnnouncementCard({ announcement, onToggleActive, onDelete }: Announceme
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">{style.icon}</span>
             <h3 className="font-semibold text-lg">{announcement.title}</h3>
-            {!announcement.isActive && (
-              <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">
-                Inactive
+            <span className="text-xs bg-slate-200 text-slate-600 px-2 py-1 rounded">
+              Priority: {announcement.priority || 3}
+            </span>
+            {!isPublished && (
+              <span className="text-xs bg-yellow-200 text-yellow-700 px-2 py-1 rounded">
+                {announcement.status}
               </span>
             )}
           </div>
@@ -301,9 +367,9 @@ function AnnouncementCard({ announcement, onToggleActive, onDelete }: Announceme
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onToggleActive(announcement.id, announcement.isActive ?? false)}
+            onClick={() => onToggleStatus(announcement.id, announcement.status)}
           >
-            {announcement.isActive ? '👁️ Hide' : '👁️‍🗨️ Show'}
+            {isPublished ? '📦 Archive' : '✅ Publish'}
           </Button>
           <Button
             variant="outline"
