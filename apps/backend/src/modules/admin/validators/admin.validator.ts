@@ -102,7 +102,6 @@ export const updateAnnouncementSchema = Joi.object({
     expiresAt: Joi.date().iso().optional().allow(null),
   }),
 });
-});
 
 // Create user validation
 export const createUserSchema = Joi.object({
