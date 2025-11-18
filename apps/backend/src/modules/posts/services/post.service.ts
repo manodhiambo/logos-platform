@@ -139,13 +139,21 @@ class PostService {
     return this.getPostById(postId, userId);
   }
 
-  async deletePost(postId: string, userId: string) {
+  async deletePost(postId: string, userId: string, userRole?: string) {
     const post = await Post.findOne({
-      where: { id: postId, authorId: userId },
+      where: { id: postId },
     });
 
     if (!post) {
-      throw new Error('Post not found or unauthorized');
+      throw new Error('Post not found');
+    }
+
+    // Allow deletion if user is the author OR is an admin/super_admin
+    const isAdmin = userRole && ['admin', 'super_admin'].includes(userRole);
+    const isAuthor = post.authorId === userId;
+
+    if (!isAuthor && !isAdmin) {
+      throw new Error('Unauthorized to delete this post');
     }
 
     await post.update({ isDeleted: true });
