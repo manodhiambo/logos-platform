@@ -251,13 +251,14 @@ export default function DashboardPage() {
       color: 'bg-red-50 hover:bg-red-100 border-red-200',
     },
     {
-    {
       icon: '👤',
       title: 'My Profile',
       description: 'View and edit profile',
       href: '/dashboard/profile',
       color: 'bg-slate-50 hover:bg-slate-100 border-slate-200',
     },
+
+    {
       icon: '👤',
       title: 'Find Friends',
       description: 'Connect with users',
