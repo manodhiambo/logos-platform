@@ -1,19 +1,16 @@
 import ProtectedRoute from '@/components/ProtectedRoute';
-import Navbar from '@/components/Navbar';
+import DashboardLayout from '@/components/layout/DashboardLayout';
 
-export default function DashboardLayout({
+export default function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-slate-50">
-        <Navbar />
-        <main className="container mx-auto px-4 py-8">
-          {children}
-        </main>
-      </div>
+      <DashboardLayout>
+        {children}
+      </DashboardLayout>
     </ProtectedRoute>
   );
 }
