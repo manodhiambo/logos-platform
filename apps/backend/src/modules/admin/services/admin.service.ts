@@ -1,5 +1,5 @@
 import User, { UserRole, UserStatus } from '../../../database/models/user.model';
-import Notification from '../../database/models/notification.model';
+import Notification from '../../../database/models/notification.model';
 import Community from '../../../database/models/community.model';
 import PrayerRequest from '../../../database/models/prayer-request.model';
 import Post from '../../../database/models/post.model';
