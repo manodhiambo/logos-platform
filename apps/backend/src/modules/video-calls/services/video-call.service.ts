@@ -56,7 +56,7 @@ class VideoCallService {
       });
 
       // Add host as participant
-      await CallParticipant.create({
+      const participant = await CallParticipant.create({
         callId: call.id,
         userId: hostId,
         role: ParticipantRole.HOST,
@@ -65,13 +65,17 @@ class VideoCallService {
         isVideoOff: false,
       });
 
-      // Generate token for host
-      const token = this.generateAgoraToken(channelName, parseInt(hostId.replace(/-/g, '').substring(0, 8), 16));
+      // Generate token and uid for host
+      const uid = parseInt(hostId.replace(/-/g, '').substring(0, 8), 16);
+      const token = this.generateAgoraToken(channelName, uid);
 
       return {
         call: await this.getCallById(call.id, hostId),
+        participant,
         token,
-        agoraAppId: this.appId,
+        appId: this.appId,
+        channelName,
+        uid,
       };
     } catch (error) {
       console.error('Error creating call:', error);
@@ -130,16 +134,17 @@ class VideoCallService {
       });
     }
 
-    // Generate token
-    const token = this.generateAgoraToken(
-      call.channelName,
-      parseInt(userId.replace(/-/g, '').substring(0, 8), 16)
-    );
+    // Generate token and uid
+    const uid = parseInt(userId.replace(/-/g, '').substring(0, 8), 16);
+    const token = this.generateAgoraToken(call.channelName, uid);
 
     return {
       call: await this.getCallById(callId, userId),
+      participant,
       token,
-      agoraAppId: this.appId,
+      appId: this.appId,
+      channelName: call.channelName,
+      uid,
     };
   }
 
