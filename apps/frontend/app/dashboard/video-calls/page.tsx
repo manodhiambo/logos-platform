@@ -6,7 +6,6 @@ import apiClient from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import Link from 'next/link';
 
 interface VideoCall {
   id: string;
@@ -59,34 +58,27 @@ export default function VideoCallsPage() {
 
   const joinCall = async (callId: string) => {
     try {
+      // Just join - backend handles starting if needed
       const response = await apiClient.post(`/video-calls/${callId}/join`);
-      const { token } = response.data.data;
-
+      
       // Redirect to call room
       window.location.href = `/dashboard/video-calls/${callId}`;
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to join call');
-    }
-  };
-
-  const startCall = async (callId: string) => {
-    try {
-      await apiClient.post(`/video-calls/${callId}/start`);
-      window.location.href = `/dashboard/video-calls/${callId}`;
-    } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to start call');
+      console.error('Join call error:', error);
     }
   };
 
   const canJoinCall = (call: VideoCall) => {
+    // Can join ongoing calls
     if (call.status === 'ongoing') return true;
     
+    // Can join scheduled calls 15 minutes before time
     if (call.status === 'scheduled' && call.scheduledAt) {
       const scheduledTime = new Date(call.scheduledAt).getTime();
       const now = Date.now();
       const fifteenMinutes = 15 * 60 * 1000;
       
-      // Can join 15 minutes before scheduled time
       return now >= (scheduledTime - fifteenMinutes);
     }
     
@@ -133,7 +125,6 @@ export default function VideoCallsPage() {
         </Button>
       </div>
 
-      {/* Create Call Modal */}
       {showCreateModal && (
         <CreateCallModal onClose={() => setShowCreateModal(false)} onSuccess={fetchCalls} />
       )}
@@ -143,7 +134,8 @@ export default function VideoCallsPage() {
         <h2 className="text-xl font-semibold mb-3">🔴 Live Now</h2>
         {activeCalls.length === 0 ? (
           <Card className="p-6 text-center text-slate-500">
-            No active calls right now
+            <p className="text-4xl mb-3">📹</p>
+            <p>No active calls right now</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -168,11 +160,9 @@ export default function VideoCallsPage() {
                   </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button onClick={() => joinCall(call.id)} className="flex-1">
-                    Join Call
-                  </Button>
-                </div>
+                <Button onClick={() => joinCall(call.id)} className="w-full">
+                  Join Call
+                </Button>
               </Card>
             ))}
           </div>
@@ -184,7 +174,8 @@ export default function VideoCallsPage() {
         <h2 className="text-xl font-semibold mb-3">📅 Upcoming</h2>
         {scheduledCalls.length === 0 ? (
           <Card className="p-6 text-center text-slate-500">
-            No scheduled calls
+            <p className="text-4xl mb-3">📆</p>
+            <p>No scheduled calls</p>
           </Card>
         ) : (
           <div className="space-y-3">
@@ -211,35 +202,34 @@ export default function VideoCallsPage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-2 items-stretch sm:items-end">
-                      {isHost ? (
-                        <Button 
-                          size="sm" 
-                          onClick={() => startCall(call.id)}
-                          className="w-full sm:w-auto"
-                        >
-                          Start Call
-                        </Button>
-                      ) : canJoin ? (
-                        <Button 
-                          size="sm" 
-                          onClick={() => joinCall(call.id)}
-                          className="w-full sm:w-auto"
-                        >
-                          Join Call
-                        </Button>
+                      {canJoin ? (
+                        <>
+                          <Button 
+                            size="sm" 
+                            onClick={() => joinCall(call.id)}
+                            className="w-full sm:w-auto"
+                          >
+                            {isHost ? 'Start Call' : 'Join Call'}
+                          </Button>
+                          <p className="text-xs text-green-600 text-center sm:text-right font-medium">
+                            ✓ Available now
+                          </p>
+                        </>
                       ) : (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="w-full sm:w-auto"
-                          disabled
-                        >
-                          Not yet available
-                        </Button>
+                        <>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="w-full sm:w-auto"
+                            disabled
+                          >
+                            Not yet available
+                          </Button>
+                          <p className="text-xs text-slate-500 text-center sm:text-right">
+                            Opens 15 min before
+                          </p>
+                        </>
                       )}
-                      <p className="text-xs text-slate-500 text-center sm:text-right">
-                        {canJoin ? 'Available now' : 'Opens 15 min before'}
-                      </p>
                     </div>
                   </div>
                 </Card>
@@ -254,7 +244,8 @@ export default function VideoCallsPage() {
         <h2 className="text-xl font-semibold mb-3">📜 Recent History</h2>
         {myCallHistory.length === 0 ? (
           <Card className="p-6 text-center text-slate-500">
-            No call history yet
+            <p className="text-4xl mb-3">📝</p>
+            <p>No call history yet</p>
           </Card>
         ) : (
           <div className="space-y-2">
@@ -305,11 +296,18 @@ function CreateCallModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     setIsLoading(true);
 
     try {
-      // Convert datetime-local to ISO string
-      const payload = {
-        ...formData,
-        scheduledAt: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : undefined,
+      const payload: any = {
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        purpose: formData.purpose,
+        maxParticipants: formData.maxParticipants,
       };
+
+      // Only add scheduledAt if provided
+      if (formData.scheduledAt) {
+        payload.scheduledAt = new Date(formData.scheduledAt).toISOString();
+      }
 
       await apiClient.post('/video-calls', payload);
       alert('Call scheduled successfully! ✅');
@@ -317,6 +315,7 @@ function CreateCallModal({ onClose, onSuccess }: { onClose: () => void; onSucces
       onClose();
     } catch (error: any) {
       alert(error.response?.data?.message || 'Failed to schedule call');
+      console.error('Create call error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -324,7 +323,7 @@ function CreateCallModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md p-6">
+      <Card className="w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">Schedule Video Call</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
