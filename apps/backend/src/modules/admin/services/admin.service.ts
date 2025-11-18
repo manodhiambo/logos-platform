@@ -281,6 +281,24 @@ class AdminService {
       limit: 1000, // Safety limit
     });
 
+    // Create in-app notifications for all users
+    await Promise.all(
+      users.slice(0, 100).map(user =>
+        Notification.create({
+          userId: user.id,
+          type: 'announcement',
+          title: announcement.title,
+          message: announcement.content.substring(0, 200),
+          isRead: false,
+          metadata: {
+            announcementId: announcement.id,
+            announcementType: announcement.type,
+            priority: announcement.priority,
+          },
+        }).catch(err => console.error(`Failed to create notification for user ${user.id}:`, err))
+      )
+    );
+
     // Send emails in batches to avoid overwhelming the email service
     const batchSize = 50;
     for (let i = 0; i < users.length; i += batchSize) {
