@@ -25,7 +25,7 @@ export enum CallPurpose {
 interface VideoCallAttributes {
   id: string;
   channelName: string;
-  hostId: string;
+  createdBy: string;
   type: CallType;
   purpose: CallPurpose;
   status: CallStatus;
@@ -37,8 +37,8 @@ interface VideoCallAttributes {
   maxParticipants: number;
   isRecording: boolean;
   recordingUrl?: string;
-  relatedTo?: string; // ID of community, prayer, etc.
-  relatedType?: string; // 'community', 'prayer', 'post'
+  relatedTo?: string;
+  relatedType?: string;
   metadata?: any;
   createdAt?: Date;
   updatedAt?: Date;
@@ -53,7 +53,7 @@ class VideoCall
 {
   public id!: string;
   public channelName!: string;
-  public hostId!: string;
+  public createdBy!: string;
   public type!: CallType;
   public purpose!: CallPurpose;
   public status!: CallStatus;
@@ -86,10 +86,10 @@ VideoCall.init(
       unique: true,
       field: 'channel_name',
     },
-    hostId: {
+    createdBy: {
       type: DataTypes.UUID,
       allowNull: false,
-      field: 'host_id',
+      field: 'created_by',
       references: {
         model: 'users',
         key: 'id',

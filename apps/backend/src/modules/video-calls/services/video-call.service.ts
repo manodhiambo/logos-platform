@@ -42,7 +42,7 @@ class VideoCallService {
 
       const call = await VideoCall.create({
         channelName,
-        hostId,
+        createdBy: hostId,
         type: callData.type || CallType.GROUP,
         purpose: callData.purpose || CallPurpose.GENERAL,
         status: callData.scheduledAt ? CallStatus.SCHEDULED : CallStatus.ONGOING,
@@ -160,7 +160,7 @@ class VideoCallService {
 
     // Check if host left
     const call = await VideoCall.findByPk(callId);
-    if (call && call.hostId === userId) {
+    if (call && call.createdBy === userId) {
       await call.update({ status: CallStatus.ENDED, endedAt: new Date() });
     }
   }
@@ -275,7 +275,7 @@ class VideoCallService {
       throw new Error('Call not found');
     }
 
-    if (call.hostId !== hostId) {
+    if (call.createdBy !== hostId) {
       throw new Error('Only the host can start the call');
     }
 
@@ -293,7 +293,7 @@ class VideoCallService {
       throw new Error('Call not found');
     }
 
-    if (call.hostId !== hostId) {
+    if (call.createdBy !== hostId) {
       throw new Error('Only the host can end the call');
     }
 

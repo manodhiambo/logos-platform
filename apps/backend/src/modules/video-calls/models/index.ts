@@ -3,7 +3,7 @@ import CallParticipant from './CallParticipant.model';
 import User from '../../../database/models/user.model';
 
 // VideoCall associations
-VideoCall.belongsTo(User, { foreignKey: 'hostId', as: 'host' });
+VideoCall.belongsTo(User, { foreignKey: 'createdBy', as: 'host' });
 VideoCall.hasMany(CallParticipant, { foreignKey: 'callId', as: 'participants' });
 
 // CallParticipant associations
