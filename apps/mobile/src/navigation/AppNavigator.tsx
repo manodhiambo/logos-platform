@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 // Auth Screens
+import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 
 // Main Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -93,8 +96,18 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [hasSeenWelcome, setHasSeenWelcome] = useState<boolean | null>(null);
 
-  if (isLoading) {
+  useEffect(() => {
+    checkWelcomeStatus();
+  }, []);
+
+  const checkWelcomeStatus = async () => {
+    const seen = await SecureStore.getItemAsync('hasSeenWelcome');
+    setHasSeenWelcome(seen === 'true');
+  };
+
+  if (isLoading || hasSeenWelcome === null) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3b82f6" />
@@ -107,8 +120,20 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <>
+            {!hasSeenWelcome && (
+              <Stack.Screen
+                name="Welcome"
+                component={WelcomeScreen}
+                listeners={{
+                  focus: async () => {
+                    await SecureStore.setItemAsync('hasSeenWelcome', 'true');
+                  },
+                }}
+              />
+            )}
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           </>
         ) : (
           <Stack.Screen name="MainTabs" component={MainTabs} />
