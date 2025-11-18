@@ -8,7 +8,7 @@ const router = Router();
 router.post('/', authenticate, communityController.createCommunity);
 router.get('/', communityController.getCommunities);
 router.get('/my-communities', authenticate, communityController.getMyCommunities);
-router.get('/:communityId', communityController.getCommunityById);
+router.get('/:communityId', authenticate, communityController.getCommunityById); // ✅ ADDED authenticate
 router.put('/:communityId', authenticate, communityController.updateCommunity);
 router.delete('/:communityId', authenticate, communityController.deleteCommunity);
 
