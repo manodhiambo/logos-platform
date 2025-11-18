@@ -10,83 +10,32 @@ class PostService {
       authorId: userId,
       communityId: data.communityId || null,
       content: data.content,
-      postType: data.postType || 'text',
+      postType: data.postType || 'regular',
       mediaUrls: data.mediaUrls || [],
       isPinned: false,
       likesCount: 0,
       commentsCount: 0,
       shareCount: 0,
+      visibility: data.visibility || 'public',
+      isDeleted: false,
     });
 
-    return await this.getPostById(post.id);
+    return this.getPostById(post.id, userId);
   }
 
-  async getPosts(filters: any, page: number = 1, limit: number = 20) {
-    const offset = (page - 1) * limit;
-
-    const where: any = { isDeleted: false };
-    if (filters.communityId) where.communityId = filters.communityId;
-    if (filters.userId) where.authorId = filters.userId;
-    if (filters.postType) where.postType = filters.postType;
-
-    const { rows: posts, count: total } = await Post.findAndCountAll({
-      where,
-      limit,
-      offset,
-      order: [
-        ['isPinned', 'DESC'],
-        ['createdAt', 'DESC'],
-      ],
-      include: [
-        {
-          model: User,
-          as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
-        },
-        {
-          model: Community,
-          as: 'community',
-          attributes: ['id', 'name'],
-          required: false,
-        },
-      ],
-    });
-
-    // Transform posts to use likeCount instead of likesCount
-    const transformedPosts = posts.map(post => {
-      const postJson = post.toJSON();
-      return {
-        ...postJson,
-        likeCount: postJson.likesCount || 0,
-        commentCount: postJson.commentsCount || 0,
-      };
-    });
-
-    return {
-      posts: transformedPosts,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-        totalPosts: total,
-        limit,
-      },
-    };
-  }
-
-  async getPostById(postId: string) {
+  async getPostById(postId: string, userId?: string) {
     const post = await Post.findOne({
       where: { id: postId, isDeleted: false },
       include: [
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'username', 'fullName', 'avatarUrl'],
+          attributes: ['id', 'fullName', 'avatarUrl'],
         },
         {
           model: Community,
           as: 'community',
           attributes: ['id', 'name'],
-          required: false,
         },
       ],
     });
@@ -95,50 +44,111 @@ class PostService {
       throw new Error('Post not found');
     }
 
-    const postJson = post.toJSON();
+    let isLiked = false;
+    if (userId) {
+      const like = await PostLike.findOne({
+        where: { postId, userId },
+      });
+      isLiked = !!like;
+    }
+
     return {
-      ...postJson,
-      likeCount: postJson.likesCount || 0,
-      commentCount: postJson.commentsCount || 0,
+      ...post.toJSON(),
+      likeCount: post.likesCount,
+      commentCount: post.commentsCount,
+      isLiked,
+    };
+  }
+
+  async getPosts(filters: any, page: number = 1, limit: number = 20, userId?: string) {
+    const offset = (page - 1) * limit;
+    const where: any = { isDeleted: false };
+
+    if (filters.communityId) {
+      where.communityId = filters.communityId;
+    }
+
+    if (filters.authorId) {
+      where.authorId = filters.authorId;
+    }
+
+    const { rows: posts, count: total } = await Post.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['id', 'fullName', 'avatarUrl'],
+        },
+        {
+          model: Community,
+          as: 'community',
+          attributes: ['id', 'name'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset,
+    });
+
+    // Check if user liked each post
+    const postsWithLikes = await Promise.all(
+      posts.map(async (post) => {
+        let isLiked = false;
+        if (userId) {
+          const like = await PostLike.findOne({
+            where: { postId: post.id, userId },
+          });
+          isLiked = !!like;
+        }
+
+        return {
+          ...post.toJSON(),
+          likeCount: post.likesCount,
+          commentCount: post.commentsCount,
+          isLiked,
+        };
+      })
+    );
+
+    return {
+      posts: postsWithLikes,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
   async updatePost(postId: string, userId: string, data: any) {
     const post = await Post.findOne({
-      where: { id: postId, isDeleted: false },
+      where: { id: postId, authorId: userId, isDeleted: false },
     });
 
     if (!post) {
-      throw new Error('Post not found');
+      throw new Error('Post not found or unauthorized');
     }
 
-    if (post.authorId !== userId) {
-      throw new Error('Unauthorized: You can only update your own posts');
-    }
+    await post.update({
+      content: data.content || post.content,
+      mediaUrls: data.mediaUrls || post.mediaUrls,
+    });
 
-    await post.update(data);
-    return await this.getPostById(postId);
+    return this.getPostById(postId, userId);
   }
 
-  async deletePost(postId: string, userId: string, userRole?: string) {
+  async deletePost(postId: string, userId: string) {
     const post = await Post.findOne({
-      where: { id: postId, isDeleted: false },
+      where: { id: postId, authorId: userId },
     });
 
     if (!post) {
-      throw new Error('Post not found');
-    }
-
-    // Allow deletion if user is the author OR is an admin
-    const isAuthor = post.authorId === userId;
-    const isAdmin = userRole === 'admin';
-
-    if (!isAuthor && !isAdmin) {
-      throw new Error('Unauthorized: You can only delete your own posts');
+      throw new Error('Post not found or unauthorized');
     }
 
     await post.update({ isDeleted: true });
-    return { message: 'Post deleted successfully' };
   }
 }
 
