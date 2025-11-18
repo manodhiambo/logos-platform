@@ -18,6 +18,7 @@ interface Community {
   postCount: number;
   avatarUrl?: string;
   isMember?: boolean;
+  userRole?: string;
 }
 
 interface Post {
@@ -77,13 +78,17 @@ export default function CommunityDetailPage() {
 
   const loadCommunity = async () => {
     try {
+      console.log('🔄 Loading community...', communityId);
       const data = await communityService.getCommunity(communityId);
-      console.log('=== COMMUNITY DATA ===', data);
-      console.log('isMember:', data.isMember);
-      console.log('userRole:', data.userRole);
+      console.log('✅ Community loaded:', {
+        name: data.name,
+        isMember: data.isMember,
+        userRole: data.userRole,
+        fullData: data
+      });
       setCommunity(data);
     } catch (error) {
-      console.error('Failed to load community:', error);
+      console.error('❌ Failed to load community:', error);
     } finally {
       setLoading(false);
     }
@@ -102,10 +107,18 @@ export default function CommunityDetailPage() {
 
   const handleJoin = async () => {
     try {
+      console.log('🚀 Joining community...', communityId);
       await communityService.joinCommunity(communityId);
+      console.log('✅ Join successful, reloading community data...');
       alert('Successfully joined! 🎉');
-      loadCommunity();
+      
+      // Force reload with a small delay to ensure backend has processed
+      setTimeout(async () => {
+        await loadCommunity();
+        await loadPosts();
+      }, 500);
     } catch (error: any) {
+      console.error('❌ Join failed:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to join';
       alert(`Error: ${errorMsg}`);
     }
@@ -113,7 +126,7 @@ export default function CommunityDetailPage() {
 
   const handleLeave = async () => {
     if (!confirm('Are you sure you want to leave this community?')) return;
-    
+
     try {
       await communityService.leaveCommunity(communityId);
       alert('Left community');
@@ -125,7 +138,7 @@ export default function CommunityDetailPage() {
 
   const handleCreatePost = async () => {
     if (!newPostContent.trim()) return;
-    
+
     setPosting(true);
     try {
       await postService.createPost({
@@ -144,11 +157,10 @@ export default function CommunityDetailPage() {
   const handleLikePost = async (postId: string) => {
     try {
       await postService.toggleLike(postId);
-      // Update the post in state
-      setPosts(posts.map(p => 
-        p.id === postId 
-          ? { 
-              ...p, 
+      setPosts(posts.map(p =>
+        p.id === postId
+          ? {
+              ...p,
               isLiked: !p.isLiked,
               likeCount: p.isLiked ? p.likeCount - 1 : p.likeCount + 1
             }
@@ -161,7 +173,7 @@ export default function CommunityDetailPage() {
 
   const handleEditPost = async (postId: string) => {
     if (!editContent.trim()) return;
-    
+
     try {
       await postService.updatePost(postId, { content: editContent });
       setEditingPost(null);
@@ -174,7 +186,7 @@ export default function CommunityDetailPage() {
 
   const handleDeletePost = async (postId: string) => {
     if (!confirm('Are you sure you want to delete this post?')) return;
-    
+
     try {
       await postService.deletePost(postId);
       loadPosts();
@@ -185,7 +197,6 @@ export default function CommunityDetailPage() {
 
   const toggleComments = async (postId: string) => {
     if (!showComments[postId]) {
-      // Load comments
       try {
         const data = await postService.getComments(postId);
         const commentsArray = Array.isArray(data) ? data : (data?.comments || []);
@@ -200,17 +211,15 @@ export default function CommunityDetailPage() {
   const handleAddComment = async (postId: string) => {
     const content = newComment[postId]?.trim();
     if (!content) return;
-    
+
     try {
       await postService.addComment(postId, content);
       setNewComment({ ...newComment, [postId]: '' });
-      // Reload comments
       const data = await postService.getComments(postId);
       const commentsArray = Array.isArray(data) ? data : (data?.comments || []);
       setComments({ ...comments, [postId]: commentsArray });
-      // Update comment count
-      setPosts(posts.map(p => 
-        p.id === postId 
+      setPosts(posts.map(p =>
+        p.id === postId
           ? { ...p, commentCount: p.commentCount + 1 }
           : p
       ));
@@ -253,6 +262,13 @@ export default function CommunityDetailPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Debug Info - Remove in production */}
+      <Card className="p-4 bg-yellow-50 border-yellow-200">
+        <p className="text-sm font-mono">
+          🐛 Debug: isMember = {String(community.isMember)} | userRole = {community.userRole || 'null'}
+        </p>
+      </Card>
+
       {/* Community Header */}
       <Card className="overflow-hidden">
         {community.avatarUrl ? (
@@ -266,7 +282,7 @@ export default function CommunityDetailPage() {
             <span className="text-8xl">🏘️</span>
           </div>
         )}
-        
+
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
@@ -298,15 +314,15 @@ export default function CommunityDetailPage() {
               </Button>
             </Link>
             {community.isMember ? (
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 className="flex-1"
                 onClick={handleLeave}
               >
                 Leave Community
               </Button>
             ) : (
-              <Button 
+              <Button
                 className="flex-1"
                 onClick={handleJoin}
               >
@@ -318,7 +334,7 @@ export default function CommunityDetailPage() {
       </Card>
 
       {/* Create Post Section */}
-      {community.isMember && (
+      {community.isMember ? (
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-slate-800 mb-3">
             Share with the community
@@ -330,7 +346,7 @@ export default function CommunityDetailPage() {
             rows={4}
             className="mb-3"
           />
-          <Button 
+          <Button
             onClick={handleCreatePost}
             disabled={posting || !newPostContent.trim()}
             className="w-full"
@@ -338,12 +354,25 @@ export default function CommunityDetailPage() {
             {posting ? 'Posting...' : 'Post'}
           </Button>
         </Card>
+      ) : (
+        <Card className="p-8 text-center bg-yellow-50 border-yellow-200">
+          <div className="text-5xl mb-3">🔒</div>
+          <h3 className="text-xl font-semibold text-slate-800 mb-2">
+            Join to Participate
+          </h3>
+          <p className="text-slate-600 mb-4">
+            You need to be a member to create posts in this community
+          </p>
+          <Button onClick={handleJoin} size="lg">
+            Join Community
+          </Button>
+        </Card>
       )}
 
       {/* Posts Section */}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-slate-800">Posts</h2>
-        
+
         {posts.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="text-6xl mb-4">📝</div>
@@ -351,8 +380,8 @@ export default function CommunityDetailPage() {
               No posts yet
             </h3>
             <p className="text-slate-600">
-              {community.isMember 
-                ? 'Be the first to post!' 
+              {community.isMember
+                ? 'Be the first to post!'
                 : 'Join to see posts and participate'}
             </p>
           </Card>
@@ -363,7 +392,7 @@ export default function CommunityDetailPage() {
                 <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white font-semibold text-lg shrink-0">
                   {post.author?.fullName?.charAt(0) || '?'}
                 </div>
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -374,7 +403,7 @@ export default function CommunityDetailPage() {
                         {new Date(post.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    
+
                     {post.authorId === currentUserId && (
                       <div className="flex gap-2">
                         <Button
@@ -395,7 +424,7 @@ export default function CommunityDetailPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {editingPost === post.id ? (
                     <div className="space-y-3">
                       <Textarea
@@ -404,13 +433,13 @@ export default function CommunityDetailPage() {
                         rows={3}
                       />
                       <div className="flex gap-2">
-                        <Button 
+                        <Button
                           size="sm"
                           onClick={() => handleEditPost(post.id)}
                         >
                           Save
                         </Button>
-                        <Button 
+                        <Button
                           size="sm"
                           variant="outline"
                           onClick={cancelEdit}
@@ -422,9 +451,9 @@ export default function CommunityDetailPage() {
                   ) : (
                     <>
                       <p className="text-slate-700 mb-3 break-words">{post.content}</p>
-                      
+
                       <div className="flex items-center gap-4 text-sm">
-                        <button 
+                        <button
                           className={`flex items-center gap-1 transition ${
                             post.isLiked ? 'text-primary font-semibold' : 'text-slate-500 hover:text-primary'
                           }`}
@@ -433,7 +462,7 @@ export default function CommunityDetailPage() {
                           <span>{post.isLiked ? '👍' : '👍🏻'}</span>
                           <span>{post.likeCount || 0}</span>
                         </button>
-                        <button 
+                        <button
                           className="flex items-center gap-1 text-slate-500 hover:text-primary transition"
                           onClick={() => toggleComments(post.id)}
                         >
@@ -458,14 +487,14 @@ export default function CommunityDetailPage() {
                               </div>
                             </div>
                           ))}
-                          
+
                           <div className="flex gap-2 mt-3">
                             <Textarea
                               placeholder="Write a comment..."
                               value={newComment[post.id] || ''}
-                              onChange={(e) => setNewComment({ 
-                                ...newComment, 
-                                [post.id]: e.target.value 
+                              onChange={(e) => setNewComment({
+                                ...newComment,
+                                [post.id]: e.target.value
                               })}
                               rows={2}
                               className="text-sm"
