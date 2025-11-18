@@ -1,5 +1,6 @@
 import User, { UserRole, UserStatus } from '../../../database/models/user.model';
 import Notification from '../../../database/models/notification.model';
+import { NotificationType } from '../../../database/models/notification.model';
 import Community from '../../../database/models/community.model';
 import PrayerRequest from '../../../database/models/prayer-request.model';
 import Post from '../../../database/models/post.model';
@@ -287,15 +288,12 @@ class AdminService {
       users.slice(0, 100).map(user =>
         Notification.create({
           userId: user.id,
-          type: 'announcement',
+          type: NotificationType.ANNOUNCEMENT,
           title: announcement.title,
           message: announcement.content.substring(0, 200),
           isRead: false,
-          metadata: {
-            announcementId: announcement.id,
-            announcementType: announcement.type,
-            priority: announcement.priority,
-          },
+          relatedId: announcement.id,
+          relatedType: 'announcement',
         }).catch(err => console.error(`Failed to create notification for user ${user.id}:`, err))
       )
     );

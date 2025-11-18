@@ -12,6 +12,7 @@ export enum NotificationType {
   POST_LIKE = 'post_like',
   POST_COMMENT = 'post_comment',
   VIDEO_CALL = 'video_call',
+  ANNOUNCEMENT = 'announcement',
   GENERAL = 'general',
 }
 
