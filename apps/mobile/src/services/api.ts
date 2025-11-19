@@ -1,7 +1,6 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// Use your production backend URL
 const API_URL = 'https://logos-platform.onrender.com/api/v1';
 
 const apiClient = axios.create({
@@ -12,10 +11,9 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('authToken');
+    const token = await SecureStore.getItemAsync('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -24,15 +22,12 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle API response structure
 apiClient.interceptors.response.use(
-  (response) => {
-    // Backend returns data in response.data.data format
-    return response;
-  },
+  (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('authToken');
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('refreshToken');
       await SecureStore.deleteItemAsync('user');
     }
     return Promise.reject(error);

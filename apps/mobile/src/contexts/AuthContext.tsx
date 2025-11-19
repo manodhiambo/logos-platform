@@ -1,20 +1,22 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import authService from '../services/auth.service';
+import authService, { RegisterData } from '../services/auth.service';
 
 interface User {
   id: string;
-  fullName: string;
   email: string;
+  username: string;
+  fullName: string;
   role: string;
   avatarUrl?: string;
+  isEmailVerified?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
+  login: (emailOrUsername: string, password: string, rememberMe?: boolean) => Promise<void>;
+  register: (data: RegisterData) => Promise<{ needsVerification: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -42,13 +44,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (email: string, password: string) => {
-    const { user } = await authService.login({ email, password });
+  const login = async (emailOrUsername: string, password: string, rememberMe: boolean = false) => {
+    const { user } = await authService.login({ emailOrUsername, password, rememberMe });
     setUser(user);
   };
 
-  const register = async (data: any) => {
-    await authService.register(data);
+  const register = async (data: RegisterData) => {
+    const result = await authService.register(data);
+    
+    if (result.needsVerification) {
+      return { needsVerification: true };
+    }
+    
+    if (result.user) {
+      setUser(result.user);
+    }
+    
+    return { needsVerification: false };
   };
 
   const logout = async () => {

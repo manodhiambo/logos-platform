@@ -20,6 +20,7 @@ export default function LoginScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const { login } = useAuth();
 
   useEffect(() => {
@@ -34,19 +35,25 @@ export default function LoginScreen({ navigation }: any) {
         setRememberMe(true);
       }
     } catch (error) {
-      console.log('Error loading saved email:', error);
+      setStatusMessage('⚠️ Error loading saved email');
     }
   };
 
   const handleLogin = async () => {
+    setStatusMessage('🔄 Logging in...');
+    
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
+      setStatusMessage('❌ Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      await login(email, password);
+      setStatusMessage('📡 Connecting to server...');
+      await login(email.trim(), password);
+      
+      setStatusMessage('✅ Login successful!');
       
       // Save credentials if remember me is checked
       if (rememberMe) {
@@ -55,7 +62,9 @@ export default function LoginScreen({ navigation }: any) {
         await SecureStore.deleteItemAsync('savedEmail');
       }
     } catch (error: any) {
-      Alert.alert('Login Failed', error.response?.data?.message || 'Invalid credentials');
+      const errorMsg = error.response?.data?.message || error.message || 'Login failed';
+      setStatusMessage(`❌ ${errorMsg}`);
+      Alert.alert('Login Failed', errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +75,22 @@ export default function LoginScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
           <Text style={styles.logo}>🙏</Text>
           <Text style={styles.title}>Logos Platform</Text>
           <Text style={styles.subtitle}>Welcome back! Sign in to continue</Text>
         </View>
+
+        {/* Status Message */}
+        {statusMessage ? (
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusText}>{statusMessage}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.form}>
           {/* Email Input */}
@@ -80,35 +99,57 @@ export default function LoginScreen({ navigation }: any) {
             <TextInput
               style={styles.input}
               placeholder="Enter your email"
+              placeholderTextColor="#94a3b8"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(text) => {
+                setEmail(text);
+                setStatusMessage(`Email: ${text.length} characters`);
+              }}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!isLoading}
               autoComplete="email"
+              autoCorrect={false}
             />
           </View>
 
-          {/* Password Input - FIXED */}
+          {/* Password Input */}
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Password</Text>
             <View style={styles.passwordWrapper}>
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Enter your password"
+                placeholderTextColor="#94a3b8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setStatusMessage(`Password: ${text.length} characters`);
+                }}
                 secureTextEntry={!showPassword}
                 editable={!isLoading}
                 autoComplete="password"
+                autoCorrect={false}
+                autoCapitalize="none"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeButton}
+                activeOpacity={0.7}
               >
                 <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Debug Info */}
+          <View style={styles.debugInfo}>
+            <Text style={styles.debugText}>
+              Email: {email.length} chars | Password: {password.length} chars
+            </Text>
+            <Text style={styles.debugText}>
+              API: https://logos-platform.onrender.com/api/v1
+            </Text>
           </View>
 
           {/* Options Row */}
@@ -137,6 +178,7 @@ export default function LoginScreen({ navigation }: any) {
             style={[styles.button, isLoading && styles.buttonDisabled]}
             onPress={handleLogin}
             disabled={isLoading}
+            activeOpacity={0.8}
           >
             {isLoading ? (
               <ActivityIndicator color="#fff" />
@@ -157,8 +199,29 @@ export default function LoginScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Register')}
             disabled={isLoading}
             style={styles.secondaryButton}
+            activeOpacity={0.8}
           >
             <Text style={styles.secondaryButtonText}>Create New Account</Text>
+          </TouchableOpacity>
+
+          {/* Test Connection Button */}
+          <TouchableOpacity
+            onPress={async () => {
+              setStatusMessage('🔍 Testing connection...');
+              try {
+                const response = await fetch('https://logos-platform.onrender.com/api/v1/auth/me');
+                if (response.status === 401) {
+                  setStatusMessage('✅ Backend reachable (401 = not logged in)');
+                } else {
+                  setStatusMessage(`📡 Backend responded: ${response.status}`);
+                }
+              } catch (error: any) {
+                setStatusMessage(`❌ Connection failed: ${error.message}`);
+              }
+            }}
+            style={styles.testButton}
+          >
+            <Text style={styles.testButtonText}>Test Backend Connection</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -178,7 +241,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
   logo: {
     fontSize: 72,
@@ -194,6 +257,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
+  },
+  statusContainer: {
+    backgroundColor: '#e0e7ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  statusText: {
+    color: '#3730a3',
+    fontSize: 14,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   form: {
     width: '100%',
@@ -214,30 +289,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    color: '#1e293b',
   },
   passwordWrapper: {
-    position: 'relative',
-  },
-  passwordInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 16,
-    paddingRight: 50,
     borderRadius: 12,
-    fontSize: 16,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  passwordInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: '#1e293b',
+  },
   eyeButton: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    height: '100%',
+    padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
   eyeIcon: {
     fontSize: 20,
+  },
+  debugInfo: {
+    backgroundColor: '#fef3c7',
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  debugText: {
+    fontSize: 11,
+    color: '#92400e',
+    textAlign: 'center',
   },
   optionsRow: {
     flexDirection: 'row',
@@ -314,10 +399,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#3b82f6',
+    marginBottom: 12,
   },
   secondaryButtonText: {
     color: '#3b82f6',
     fontSize: 16,
     fontWeight: '600',
+  },
+  testButton: {
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  testButtonText: {
+    color: '#475569',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
