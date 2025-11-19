@@ -1,7 +1,8 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const API_URL = 'https://logos-platform.onrender.com/api/v1';
+// Correct backend URL from Render
+const API_URL = 'https://logos-backend.onrender.com/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_URL,
