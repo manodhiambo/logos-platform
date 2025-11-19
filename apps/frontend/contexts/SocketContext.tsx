@@ -45,19 +45,21 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     // Get token from localStorage
     const token = localStorage.getItem('token');
-    
+
     if (!token) {
       console.warn('⚠️  No auth token found, socket connection skipped');
       return;
     }
 
-    // API URL from environment or default
+    // Socket.IO connects to base URL, NOT /api/v1
+    // Remove /api/v1 from the socket URL
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const socketUrl = apiUrl.replace('/api/v1', ''); // Remove API path for socket connection
 
-    console.log('🔌 Initializing socket connection to:', apiUrl);
+    console.log('🔌 Initializing socket connection to:', socketUrl);
 
     // Initialize socket connection
-    const socketInstance = io(apiUrl, {
+    const socketInstance = io(socketUrl, {
       auth: {
         token,
       },
