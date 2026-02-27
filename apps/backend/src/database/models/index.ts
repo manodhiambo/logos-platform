@@ -22,6 +22,7 @@ import MessageReaction from './message-reaction.model';
 import GroupChat from './group-chat.model';
 import GroupMember from './group-member.model';
 import GroupMessage from './group-message.model';
+import Status from './status.model';
 
 // ==================== User Associations ====================
 User.hasMany(Community, { foreignKey: 'createdBy', as: 'createdCommunities' });
@@ -149,6 +150,10 @@ GroupMember.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 GroupMessage.belongsTo(GroupChat, { foreignKey: 'groupId', as: 'group' });
 GroupMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 
+// ==================== Status Associations ====================
+Status.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+User.hasMany(Status, { foreignKey: 'userId', as: 'statuses' });
+
 export {
   User,
   Community,
@@ -174,4 +179,5 @@ export {
   GroupChat,
   GroupMember,
   GroupMessage,
+  Status,
 };

@@ -177,7 +177,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               Communities
             </NavLink>
             <NavLink href="/dashboard/posts" icon="📝">
-              Posts
+              Posts & Feed
+            </NavLink>
+            <NavLink href="/dashboard/status" icon="✨">
+              Status
             </NavLink>
 
             <div className="border-t border-slate-200 my-2 pt-2">

@@ -30,7 +30,7 @@ class PostService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'fullName', 'avatarUrl'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
         },
         {
           model: Community,
@@ -78,7 +78,7 @@ class PostService {
         {
           model: User,
           as: 'author',
-          attributes: ['id', 'fullName', 'avatarUrl'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl'],
         },
         {
           model: Community,

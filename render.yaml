@@ -26,6 +26,26 @@ services:
         sync: false
       - key: CORS_ORIGIN
         value: https://frontend-j7myt9g1m-kevin-owino-odhiambos-projects.vercel.app
+      - key: FRONTEND_URL
+        value: https://frontend-j7myt9g1m-kevin-owino-odhiambos-projects.vercel.app
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_SECURE
+        value: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
 databases:
   - name: logos-postgres

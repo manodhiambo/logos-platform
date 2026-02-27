@@ -26,6 +26,8 @@ import messageRoutes from './modules/auth/routes/message.routes';
 import groupChatRoutes from './modules/auth/routes/group-chat.routes';
 import adminRoutes from './modules/admin/routes/admin.routes';
 import announcementPublicRoutes from './modules/admin/routes/announcement-public.routes';
+import uploadRoutes from './modules/upload/routes/upload.routes';
+import statusRoutes from './modules/status/routes/status.routes';
 
 const app: Application = express();
 
@@ -85,6 +87,8 @@ app.use('/api/v1/messages', messageRoutes);
 app.use('/api/v1/groups', groupChatRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/announcements', announcementPublicRoutes);
+app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/status', statusRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

@@ -10,16 +10,15 @@ import Link from 'next/link';
 interface Post {
   id: string;
   content: string;
+  mediaUrls?: string[];
+  postType?: string;
   author: {
     id: string;
     fullName: string;
     username: string;
     avatarUrl?: string;
   };
-  community?: {
-    id: string;
-    name: string;
-  } | null;
+  community?: { id: string; name: string } | null;
   likeCount: number;
   commentCount: number;
   isLiked?: boolean;
@@ -29,314 +28,394 @@ interface Post {
 interface Comment {
   id: string;
   content: string;
-  author: {
-    id: string;
-    fullName: string;
-    username: string;
-    avatarUrl?: string;
-  };
+  author: { id: string; fullName: string; username: string; avatarUrl?: string };
   createdAt: string;
+}
+
+function MediaGallery({ urls }: { urls: string[] }) {
+  if (!urls || urls.length === 0) return null;
+
+  const isVideo = (url: string) =>
+    url.match(/\.(mp4|mov|webm|avi)(\?|$)/i) || url.includes('/video/');
+
+  if (urls.length === 1) {
+    const url = urls[0];
+    return (
+      <div className="mt-3 rounded-xl overflow-hidden bg-black">
+        {isVideo(url) ? (
+          <video
+            src={url}
+            controls
+            className="w-full max-h-96 object-contain"
+            preload="metadata"
+          />
+        ) : (
+          <img
+            src={url}
+            alt="Post media"
+            className="w-full max-h-96 object-cover cursor-pointer"
+            onClick={() => window.open(url, '_blank')}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mt-3 grid gap-1 rounded-xl overflow-hidden ${urls.length === 2 ? 'grid-cols-2' : urls.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      {urls.slice(0, 4).map((url, i) => (
+        <div key={i} className="relative aspect-square bg-black">
+          {isVideo(url) ? (
+            <video src={url} className="w-full h-full object-cover" preload="metadata" />
+          ) : (
+            <img
+              src={url}
+              alt={`Media ${i + 1}`}
+              className="w-full h-full object-cover cursor-pointer hover:opacity-95 transition-opacity"
+              onClick={() => window.open(url, '_blank')}
+            />
+          )}
+          {i === 3 && urls.length > 4 && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-2xl font-bold">
+              +{urls.length - 4}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PostCard({
+  post,
+  currentUser,
+  onLike,
+  onDelete,
+}: {
+  post: Post;
+  currentUser: any;
+  onLike: (id: string) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [commentCount, setCommentCount] = useState(post.commentCount);
+
+  const fetchComments = async () => {
+    if (loadingComments) return;
+    setLoadingComments(true);
+    try {
+      const response = await apiClient.get(`/posts/${post.id}/comments`);
+      setComments(response.data.data?.comments || []);
+    } catch (err) {
+      console.error('Failed to fetch comments:', err);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
+
+  const toggleComments = async () => {
+    if (!showComments && comments.length === 0) {
+      await fetchComments();
+    }
+    setShowComments(v => !v);
+  };
+
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await apiClient.post(`/posts/${post.id}/comments`, { content: newComment.trim() });
+      setNewComment('');
+      setCommentCount(c => c + 1);
+      await fetchComments();
+    } catch (err) {
+      console.error('Failed to add comment:', err);
+    }
+  };
+
+  const canDelete = currentUser && (post.author.id === currentUser.id || currentUser.role === 'admin' || currentUser.role === 'super_admin');
+  const avatarInitial = (post.author?.fullName?.[0] || post.author?.username?.[0] || 'U').toUpperCase();
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+    if (diff < 60) return 'Just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    return d.toLocaleDateString();
+  };
+
+  return (
+    <Card className="p-4 md:p-5 hover:shadow-md transition-shadow">
+      {/* Author row */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
+            {post.author?.avatarUrl ? (
+              <img src={post.author.avatarUrl} alt={post.author.fullName} className="w-full h-full object-cover" />
+            ) : (
+              avatarInitial
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-gray-900">
+                {post.author?.fullName || post.author?.username || 'Anonymous'}
+              </span>
+              {post.community && (
+                <span className="text-xs text-gray-500">
+                  in <span className="font-medium text-blue-600">{post.community.name}</span>
+                </span>
+              )}
+              {post.postType && post.postType !== 'regular' && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full capitalize">
+                  {post.postType}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400">{formatTime(post.createdAt)}</p>
+          </div>
+        </div>
+        {canDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(post.id)}
+            className="text-red-500 hover:text-red-600 hover:bg-red-50 -mr-1"
+          >
+            🗑️
+          </Button>
+        )}
+      </div>
+
+      {/* Content */}
+      {post.content && (
+        <p className="text-gray-800 whitespace-pre-wrap leading-relaxed mb-2">{post.content}</p>
+      )}
+
+      {/* Media */}
+      <MediaGallery urls={post.mediaUrls || []} />
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 pt-3 mt-1 border-t">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onLike(post.id)}
+          className={`flex items-center gap-1.5 ${post.isLiked ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-blue-600'}`}
+        >
+          <span>{post.isLiked ? '❤️' : '🤍'}</span>
+          <span>{post.likeCount}</span>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleComments}
+          className="flex items-center gap-1.5 text-gray-500 hover:text-blue-600"
+        >
+          <span>💬</span>
+          <span>{commentCount}</span>
+        </Button>
+      </div>
+
+      {/* Comments */}
+      {showComments && (
+        <div className="mt-3 pt-3 border-t space-y-3">
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Write a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="flex-1 min-h-[60px] text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  addComment();
+                }
+              }}
+            />
+            <Button size="sm" onClick={addComment} disabled={!newComment.trim()} className="self-end">
+              Post
+            </Button>
+          </div>
+          {loadingComments ? (
+            <div className="text-center py-3">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mx-auto" />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {comments.length === 0 && (
+                <p className="text-xs text-gray-400 text-center py-2">No comments yet. Be the first!</p>
+              )}
+              {comments.map((c) => (
+                <div key={c.id} className="flex gap-2 bg-gray-50 rounded-lg p-2.5">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                    {(c.author?.fullName?.[0] || c.author?.username?.[0] || 'U').toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-xs text-gray-800">
+                      {c.author?.fullName || c.author?.username}
+                    </span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </span>
+                    <p className="text-sm text-gray-700 mt-0.5">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function StatusStrip() {
+  const [groups, setGroups] = useState<any[]>([]);
+
+  useEffect(() => {
+    apiClient.get('/status/grouped').then(r => {
+      setGroups(r.data.data?.groups || []);
+    }).catch(() => {});
+  }, []);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <Card className="p-3">
+      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+        {/* Add status button */}
+        <Link href="/dashboard/status/new" className="flex-shrink-0 flex flex-col items-center gap-1">
+          <div className="w-14 h-14 rounded-full border-2 border-dashed border-blue-400 flex items-center justify-center bg-blue-50 text-blue-500 text-2xl">
+            +
+          </div>
+          <span className="text-xs text-gray-500">Add</span>
+        </Link>
+
+        {groups.map(group => (
+          <Link key={group.user.id} href="/dashboard/status" className="flex-shrink-0 flex flex-col items-center gap-1">
+            <div className="w-14 h-14 rounded-full border-2 border-blue-500 p-0.5">
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                {group.user?.avatarUrl ? (
+                  <img src={group.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  (group.user?.fullName?.[0] || 'U').toUpperCase()
+                )}
+              </div>
+            </div>
+            <span className="text-xs text-gray-600 truncate w-14 text-center">
+              {group.user?.fullName?.split(' ')[0] || group.user?.username}
+            </span>
+          </Link>
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showComments, setShowComments] = useState<{ [key: string]: boolean }>({});
-  const [comments, setComments] = useState<{ [key: string]: Comment[] }>({});
-  const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
-  const [loadingComments, setLoadingComments] = useState<{ [key: string]: boolean }>({});
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    // Get current user from localStorage
     const user = localStorage.getItem('user');
-    if (user) {
-      setCurrentUser(JSON.parse(user));
-    }
+    if (user) setCurrentUser(JSON.parse(user));
     fetchPosts();
   }, []);
 
   const fetchPosts = async () => {
     try {
-      console.log('Fetching posts...');
-      const response = await apiClient.get('/posts?page=1&limit=20');
-      console.log('Posts response:', response);
+      const response = await apiClient.get('/posts?page=1&limit=30');
       setPosts(response.data.data?.posts || []);
-    } catch (error) {
-      console.error('Failed to fetch posts:', error);
+    } catch (err) {
+      console.error('Failed to fetch posts:', err);
     } finally {
       setLoading(false);
     }
   };
 
   const likePost = async (postId: string) => {
+    setPosts(prev =>
+      prev.map(p =>
+        p.id === postId
+          ? { ...p, isLiked: !p.isLiked, likeCount: p.isLiked ? p.likeCount - 1 : p.likeCount + 1 }
+          : p
+      )
+    );
     try {
-      console.log('Liking post:', postId);
-      const response = await apiClient.post(`/posts/${postId}/like`);
-      console.log('Like response:', response);
-      
-      // Update the post in the list immediately
-      setPosts(prevPosts => 
-        prevPosts.map(post => {
-          if (post.id === postId) {
-            const isLiked = !post.isLiked;
-            return {
-              ...post,
-              isLiked,
-              likeCount: isLiked ? post.likeCount + 1 : post.likeCount - 1
-            };
-          }
-          return post;
-        })
+      await apiClient.post(`/posts/${postId}/like`);
+    } catch (err) {
+      // Revert on error
+      setPosts(prev =>
+        prev.map(p =>
+          p.id === postId
+            ? { ...p, isLiked: !p.isLiked, likeCount: p.isLiked ? p.likeCount - 1 : p.likeCount + 1 }
+            : p
+        )
       );
-    } catch (error: any) {
-      console.error('Failed to like post:', error);
-      console.error('Error response:', error.response);
-      alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to like post');
     }
   };
 
   const deletePost = async (postId: string) => {
-    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
-      return;
-    }
-
+    if (!confirm('Delete this post? This cannot be undone.')) return;
     try {
-      console.log('Deleting post:', postId);
       await apiClient.delete(`/posts/${postId}`);
-      
-      // Remove post from the list
-      setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
-      alert('Post deleted successfully! ✅');
-    } catch (error: any) {
-      console.error('Failed to delete post:', error);
-      console.error('Error response:', error.response);
-      alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to delete post');
+      setPosts(prev => prev.filter(p => p.id !== postId));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete post');
     }
-  };
-
-  const toggleComments = async (postId: string) => {
-    const isShowing = showComments[postId];
-    
-    if (!isShowing && !comments[postId]) {
-      // Load comments if not already loaded
-      await fetchComments(postId);
-    }
-    
-    setShowComments(prev => ({
-      ...prev,
-      [postId]: !isShowing
-    }));
-  };
-
-  const fetchComments = async (postId: string) => {
-    try {
-      setLoadingComments(prev => ({ ...prev, [postId]: true }));
-      console.log('Fetching comments for post:', postId);
-      const response = await apiClient.get(`/posts/${postId}/comments`);
-      console.log('Comments response:', response);
-      setComments(prev => ({
-        ...prev,
-        [postId]: response.data.data?.comments || []
-      }));
-    } catch (error: any) {
-      console.error('Failed to fetch comments:', error);
-      console.error('Error response:', error.response);
-      alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to load comments');
-    } finally {
-      setLoadingComments(prev => ({ ...prev, [postId]: false }));
-    }
-  };
-
-  const addComment = async (postId: string) => {
-    const content = newComment[postId]?.trim();
-    if (!content) return;
-
-    try {
-      console.log('Adding comment to post:', postId);
-      const response = await apiClient.post(`/posts/${postId}/comments`, { content });
-      console.log('Add comment response:', response);
-      
-      // Refresh comments
-      await fetchComments(postId);
-      
-      // Clear input
-      setNewComment(prev => ({ ...prev, [postId]: '' }));
-      
-      // Update comment count
-      setPosts(prevPosts =>
-        prevPosts.map(post =>
-          post.id === postId
-            ? { ...post, commentCount: post.commentCount + 1 }
-            : post
-        )
-      );
-    } catch (error: any) {
-      console.error('Failed to add comment:', error);
-      console.error('Error response:', error.response);
-      alert(error.response?.data?.error?.message || error.response?.data?.message || 'Failed to add comment');
-    }
-  };
-
-  const canDeletePost = (post: Post) => {
-    if (!currentUser) return false;
-    // User can delete if they're the author or an admin
-    return post.author.id === currentUser.id || currentUser.role === 'admin';
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading posts...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-3" />
+          <p className="text-gray-500">Loading feed...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+    <div className="max-w-2xl mx-auto space-y-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">📝 Community Feed</h1>
-          <p className="text-gray-600 mt-1">Share and connect with others</p>
+          <h1 className="text-2xl font-bold text-gray-900">Community Feed</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Connect and share with the community</p>
         </div>
         <Link href="/dashboard/posts/new">
-          <Button className="w-full sm:w-auto">+ New Post</Button>
+          <Button>+ New Post</Button>
         </Link>
       </div>
 
+      {/* Status ring strip */}
+      <StatusStrip />
+
       {posts.length === 0 ? (
-        <Card className="p-8 text-center">
-          <div className="text-6xl mb-4">📝</div>
-          <p className="text-gray-500 mb-4">No posts yet</p>
-          <p className="text-sm text-gray-400 mb-6">
-            Be the first to share something with the community
-          </p>
+        <Card className="p-10 text-center">
+          <p className="text-4xl mb-3">📝</p>
+          <p className="text-gray-600 font-medium mb-1">No posts yet</p>
+          <p className="text-sm text-gray-400 mb-5">Be the first to share with the community</p>
           <Link href="/dashboard/posts/new">
             <Button>Create First Post</Button>
           </Link>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {posts.map((post) => (
-            <Card key={post.id} className="p-4 md:p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
-                  {post.author?.fullName?.[0] || post.author?.username?.[0] || 'U'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-gray-900">
-                        {post.author?.fullName || post.author?.username || 'Anonymous'}
-                      </h3>
-                      {post.community && (
-                        <span className="text-sm text-gray-500">
-                          in <span className="font-medium text-blue-600">{post.community.name}</span>
-                        </span>
-                      )}
-                    </div>
-                    {canDeletePost(post) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deletePost(post.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        🗑️ Delete
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500">
-                    {new Date(post.createdAt).toLocaleDateString()} • {new Date(post.createdAt).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-gray-700 mb-4 whitespace-pre-wrap leading-relaxed">
-                {post.content}
-              </p>
-
-              <div className="flex items-center gap-4 pt-3 border-t">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => likePost(post.id)}
-                  className={`${
-                    post.isLiked ? 'text-blue-600' : 'text-gray-600'
-                  } hover:text-blue-600`}
-                >
-                  <span className="mr-1">{post.isLiked ? '👍' : '👍'}</span>
-                  {post.likeCount} {post.likeCount === 1 ? 'Like' : 'Likes'}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleComments(post.id)}
-                  className="text-gray-600 hover:text-blue-600"
-                >
-                  <span className="mr-1">💬</span>
-                  {post.commentCount} {post.commentCount === 1 ? 'Comment' : 'Comments'}
-                </Button>
-              </div>
-
-              {/* Comments Section */}
-              {showComments[post.id] && (
-                <div className="mt-4 pt-4 border-t space-y-4">
-                  {/* Add Comment */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="Write a comment..."
-                      value={newComment[post.id] || ''}
-                      onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
-                      className="flex-1 min-h-[80px]"
-                    />
-                    <Button
-                      onClick={() => addComment(post.id)}
-                      disabled={!newComment[post.id]?.trim()}
-                      className="self-end"
-                    >
-                      Post
-                    </Button>
-                  </div>
-
-                  {/* Comments List */}
-                  {loadingComments[post.id] ? (
-                    <div className="text-center py-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {comments[post.id]?.map((comment) => (
-                        <div key={comment.id} className="flex gap-3 bg-gray-50 p-3 rounded-lg">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0 text-sm">
-                            {comment.author?.fullName?.[0] || comment.author?.username?.[0] || 'U'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-semibold text-sm">
-                                {comment.author?.fullName || comment.author?.username || 'Anonymous'}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(comment.createdAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-700">{comment.content}</p>
-                          </div>
-                        </div>
-                      ))}
-                      {comments[post.id]?.length === 0 && (
-                        <p className="text-center text-gray-500 text-sm py-4">No comments yet. Be the first to comment!</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
+        posts.map((post) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            currentUser={currentUser}
+            onLike={likePost}
+            onDelete={deletePost}
+          />
+        ))
       )}
     </div>
   );

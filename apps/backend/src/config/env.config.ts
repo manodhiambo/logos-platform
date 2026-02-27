@@ -26,10 +26,20 @@ export const config = {
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
 
+  // Email (SMTP via Nodemailer)
+  email: {
+    host: process.env.EMAIL_HOST || '',
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_SECURE === 'true',
+    user: process.env.EMAIL_USER || '',
+    pass: process.env.EMAIL_PASS || '',
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@logos-grace.org',
+  },
+
   // POE API
   poeApi: {
     apiKey: process.env.POE_API_KEY || '',
-    botName: process.env.POE_BOT_NAME || 'AIGospelAssistant',
+    botName: process.env.POE_BOT_NAME || 'Claude-3-Haiku',
     baseUrl: process.env.POE_API_BASE_URL || 'https://api.poe.com/v1',
   },
 
@@ -38,6 +48,16 @@ export const config = {
     appId: process.env.AGORA_APP_ID || '',
     appCertificate: process.env.AGORA_APP_CERTIFICATE || '',
   },
+
+  // Cloudinary
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
+
+  // Frontend URL
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 
   // CORS
   cors: {

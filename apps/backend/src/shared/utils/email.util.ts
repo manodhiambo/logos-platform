@@ -1,7 +1,5 @@
-import sgMail from '@sendgrid/mail';
+import nodemailer from 'nodemailer';
 import { logger } from './logger.util';
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY || '');
 
 interface EmailOptions {
   to: string;
@@ -10,22 +8,57 @@ interface EmailOptions {
   text?: string;
 }
 
+const createTransporter = () => {
+  const host = process.env.EMAIL_HOST;
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  const port = parseInt(process.env.EMAIL_PORT || '587');
+  const secure = process.env.EMAIL_SECURE === 'true';
+
+  if (host && user && pass) {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+    });
+  }
+
+  // Gmail shorthand (requires EMAIL_USER + EMAIL_PASS as app password)
+  if (user && pass) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  }
+
+  // Fallback: ethereal test account (dev only - emails appear in console)
+  logger.warn('No email credentials configured - using test transport. Emails will not be delivered.');
+  return nodemailer.createTransport({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    auth: { user: 'test@ethereal.email', pass: 'test' },
+  });
+};
+
 class EmailService {
   async sendEmail(options: EmailOptions): Promise<boolean> {
     try {
-      const msg = {
+      const transporter = createTransporter();
+      const from = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'LOGOS Platform <noreply@logos-grace.org>';
+
+      const info = await transporter.sendMail({
+        from,
         to: options.to,
-        from: process.env.EMAIL_FROM || 'LOGOS Platform <noreply@logos-grace.org>',
         subject: options.subject,
         html: options.html,
         text: options.text,
-      };
+      });
 
-      await sgMail.send(msg);
-      logger.info(`✅ Email sent successfully to ${options.to}`);
+      logger.info(`✅ Email sent successfully to ${options.to} (MessageId: ${info.messageId})`);
       return true;
     } catch (error: any) {
-      logger.error('❌ Email sending failed:', error.response?.body || error);
+      logger.error('❌ Email sending failed:', error.message || error);
       return false;
     }
   }
@@ -46,7 +79,7 @@ class EmailService {
   }
 
   async sendWelcomeEmail(email: string, username: string): Promise<boolean> {
-    const subject = 'Welcome to LOGOS Platform! 🙏';
+    const subject = 'Welcome to LOGOS Platform!';
     const html = this.getWelcomeEmailTemplate(username);
     const text = `Welcome to LOGOS Platform, ${username}! We're excited to have you join our faith community.`;
     return this.sendEmail({ to: email, subject, html, text });
@@ -185,7 +218,7 @@ class EmailService {
             <table role="presentation" style="width: 600px; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
               <tr>
                 <td style="padding: 40px 40px 20px; text-align: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px 8px 0 0;">
-                  <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: bold;">🙏 Welcome to LOGOS!</h1>
+                  <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: bold;">Welcome to LOGOS!</h1>
                 </td>
               </tr>
               <tr>
@@ -194,11 +227,11 @@ class EmailService {
                   <p style="margin: 0 0 20px; color: #666666;">We're thrilled to have you join our faith community! LOGOS Platform is here to support you on your spiritual journey.</p>
                   <h3 style="margin: 30px 0 15px; color: #333333;">What's Next?</h3>
                   <ul style="margin: 0 0 20px; padding-left: 20px; color: #666666;">
-                    <li>💬 Chat with LOGOS AI – Get biblical guidance and answers</li>
-                    <li>🙏 Join Prayer Groups – Connect with believers</li>
-                    <li>📖 Daily Devotionals – Grow in your faith</li>
-                    <li>👥 Join Communities – Find your tribe</li>
-                    <li>📚 Bible Study Plans – Follow structured readings</li>
+                    <li>Chat with LOGOS AI – Get biblical guidance and answers</li>
+                    <li>Join Prayer Groups – Connect with believers</li>
+                    <li>Daily Devotionals – Grow in your faith</li>
+                    <li>Join Communities – Find your tribe</li>
+                    <li>Share Posts & Status – Connect with others</li>
                   </ul>
                   <table role="presentation" style="width: 100%; margin: 30px 0;">
                     <tr>
@@ -207,7 +240,7 @@ class EmailService {
                       </td>
                     </tr>
                   </table>
-                  <p style="margin: 20px 0 0; color: #666666;">May the Lord bless you and keep you! 🙏</p>
+                  <p style="margin: 20px 0 0; color: #666666;">May the Lord bless you and keep you!</p>
                 </td>
               </tr>
               <tr>

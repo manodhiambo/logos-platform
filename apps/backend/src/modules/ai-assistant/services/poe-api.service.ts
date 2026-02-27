@@ -12,117 +12,114 @@ interface PoeResponse {
   id?: string;
 }
 
+const SYSTEM_PROMPT = `You are LOGOS AI, a knowledgeable and compassionate biblical and theological assistant for the LOGOS Platform — a Christian faith community app.
+
+Your role is to:
+- Provide accurate, scripture-backed answers about the Bible, theology, and Christian living
+- Share relevant Bible verses (e.g., John 3:16, Romans 8:28) to support your answers
+- Offer spiritual encouragement grounded in the Word of God
+- Help users grow in their faith, prayer life, and understanding of Scripture
+- Maintain a warm, respectful, and Christ-centered tone
+
+Always cite specific Bible references when relevant. If a question is outside your biblical/theological scope, gently redirect while remaining helpful.`;
+
+// Fallback bot order - tries primary bot first, then these
+const FALLBACK_BOTS = ['Claude-3-Haiku', 'GPT-3.5-Turbo', 'Claude-instant'];
+
 class PoeApiService {
   private apiKey: string;
-  private botName: string;
+  private primaryBotName: string;
   private baseURL: string;
 
   constructor() {
     this.apiKey = config.poeApi.apiKey;
-    this.botName = config.poeApi.botName || 'AIGospelAssistant';
+    this.primaryBotName = config.poeApi.botName || 'Claude-3-Haiku';
     this.baseURL = 'https://api.poe.com/v1';
   }
 
-  /**
-   * Send a message to POE API using OpenAI-compatible format
-   */
-  async sendMessage(message: string, conversationHistory: PoeMessage[] = []): Promise<PoeResponse> {
-    try {
-      if (!this.apiKey) {
-        logger.warn('POE API key not configured');
-        throw new Error('POE API key is not configured');
-      }
-
-      logger.info(`Sending message to POE bot (${this.botName}): ${message.substring(0, 50)}...`);
-
-      // Convert conversation history to OpenAI format
-      const messages = [
-        ...conversationHistory.map(msg => ({
-          role: msg.role === 'bot' ? 'assistant' : 'user',
-          content: msg.content,
-        })),
-        {
-          role: 'user',
-          content: message,
-        }
-      ];
-
-      // Use OpenAI-compatible chat completions endpoint
-      const response = await axios.post(
-        `${this.baseURL}/chat/completions`,
-        {
-          model: this.botName,
-          messages: messages,
+  private async callPoeApi(botName: string, messages: any[]): Promise<string> {
+    const response = await axios.post(
+      `${this.baseURL}/chat/completions`,
+      {
+        model: botName,
+        messages,
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
         },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-          timeout: 60000, // 60 seconds
-        }
-      );
-
-      logger.info('POE API response received successfully');
-
-      // Extract response from OpenAI-compatible format
-      const responseText = response.data.choices?.[0]?.message?.content || '';
-
-      if (!responseText) {
-        throw new Error('Empty response from POE API');
+        timeout: 60000,
       }
+    );
 
-      return {
-        text: responseText,
-        id: response.data.id || `poe_${Date.now()}`,
-      };
-
-    } catch (error: any) {
-      logger.error('POE API Error:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message,
-      });
-      
-      if (error.response?.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again in a few moments.');
-      }
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error('Invalid POE API key. Please verify your API key.');
-      }
-
-      if (error.response?.status === 404) {
-        throw new Error(`Bot "${this.botName}" not found. Please check the bot name.`);
-      }
-
-      if (error.response?.status === 400) {
-        const errorMsg = error.response?.data?.error?.message || 'Bad request';
-        throw new Error(`POE API error: ${errorMsg}`);
-      }
-
-      // Re-throw the original error
-      throw new Error(error.message || 'Failed to get response from AI assistant');
+    const text = response.data.choices?.[0]?.message?.content || '';
+    if (!text) {
+      throw new Error('Empty response from POE API');
     }
+    return text;
   }
 
-  /**
-   * Alternative method - not needed now that we have correct format
-   */
+  async sendMessage(message: string, conversationHistory: PoeMessage[] = []): Promise<PoeResponse> {
+    if (!this.apiKey) {
+      logger.warn('POE API key not configured');
+      throw new Error('AI service is not configured. Please contact support.');
+    }
+
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversationHistory.map(msg => ({
+        role: msg.role === 'bot' ? 'assistant' : 'user',
+        content: msg.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    // Try primary bot first, then fallbacks
+    const botsToTry = [this.primaryBotName, ...FALLBACK_BOTS.filter(b => b !== this.primaryBotName)];
+
+    for (const botName of botsToTry) {
+      try {
+        logger.info(`Trying POE bot: ${botName}`);
+        const text = await this.callPoeApi(botName, messages);
+        logger.info(`POE response received from bot: ${botName}`);
+        return { text, id: `poe_${Date.now()}` };
+      } catch (error: any) {
+        const status = error.response?.status;
+
+        if (status === 401 || status === 403) {
+          // Auth error - no point trying other bots
+          logger.error('POE API authentication failed');
+          throw new Error('AI service authentication failed. Please contact support.');
+        }
+
+        if (status === 429) {
+          throw new Error('AI service is busy. Please try again in a moment.');
+        }
+
+        if (status === 404 || status === 400) {
+          // Bot not found - try next one
+          logger.warn(`Bot "${botName}" not available, trying next...`);
+          continue;
+        }
+
+        logger.error(`POE API error with bot ${botName}:`, error.message);
+        // Try next bot on generic errors too
+        continue;
+      }
+    }
+
+    throw new Error('AI assistant is temporarily unavailable. Please try again later.');
+  }
+
   async sendMessageAlternative(message: string): Promise<PoeResponse> {
     return this.sendMessage(message, []);
   }
 
-  /**
-   * Extract Bible references from text
-   */
   extractBibleReferences(text: string): any[] {
     const references: any[] = [];
-    
-    // Regex pattern for Bible references (e.g., John 3:16, Genesis 1:1-3, 1 Corinthians 13:4)
     const pattern = /\b([1-3]?\s?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(\d+):(\d+)(?:-(\d+))?\b/g;
-    
+
     let match;
     while ((match = pattern.exec(text)) !== null) {
       references.push({
@@ -137,9 +134,6 @@ class PoeApiService {
     return references;
   }
 
-  /**
-   * Generate conversation title from first message
-   */
   generateTitle(message: string): string {
     const maxLength = 50;
     if (message.length <= maxLength) {
