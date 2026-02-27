@@ -20,7 +20,6 @@ export default function LoginScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
   const { login } = useAuth();
 
   useEffect(() => {
@@ -35,27 +34,19 @@ export default function LoginScreen({ navigation }: any) {
         setRememberMe(true);
       }
     } catch (error) {
-      setStatusMessage('⚠️ Error loading saved email');
+      // ignore
     }
   };
 
   const handleLogin = async () => {
-    setStatusMessage('🔄 Logging in...');
-    
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
-      setStatusMessage('❌ Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      setStatusMessage('📡 Connecting to server...');
       await login(email.trim(), password);
-      
-      setStatusMessage('✅ Login successful!');
-      
-      // Save credentials if remember me is checked
       if (rememberMe) {
         await SecureStore.setItemAsync('savedEmail', email);
       } else {
@@ -63,7 +54,6 @@ export default function LoginScreen({ navigation }: any) {
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || error.message || 'Login failed';
-      setStatusMessage(`❌ ${errorMsg}`);
       Alert.alert('Login Failed', errorMsg);
     } finally {
       setIsLoading(false);
@@ -85,13 +75,6 @@ export default function LoginScreen({ navigation }: any) {
           <Text style={styles.subtitle}>Welcome back! Sign in to continue</Text>
         </View>
 
-        {/* Status Message */}
-        {statusMessage ? (
-          <View style={styles.statusContainer}>
-            <Text style={styles.statusText}>{statusMessage}</Text>
-          </View>
-        ) : null}
-
         <View style={styles.form}>
           {/* Email Input */}
           <View style={styles.inputContainer}>
@@ -101,10 +84,7 @@ export default function LoginScreen({ navigation }: any) {
               placeholder="Enter your email"
               placeholderTextColor="#94a3b8"
               value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                setStatusMessage(`Email: ${text.length} characters`);
-              }}
+              onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!isLoading}
@@ -122,10 +102,7 @@ export default function LoginScreen({ navigation }: any) {
                 placeholder="Enter your password"
                 placeholderTextColor="#94a3b8"
                 value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  setStatusMessage(`Password: ${text.length} characters`);
-                }}
+                onChangeText={setPassword}
                 secureTextEntry={!showPassword}
                 editable={!isLoading}
                 autoComplete="password"
@@ -140,16 +117,6 @@ export default function LoginScreen({ navigation }: any) {
                 <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
               </TouchableOpacity>
             </View>
-          </View>
-
-          {/* Debug Info */}
-          <View style={styles.debugInfo}>
-            <Text style={styles.debugText}>
-              Email: {email.length} chars | Password: {password.length} chars
-            </Text>
-            <Text style={styles.debugText}>
-              API: https://logos-platform.onrender.com/api/v1
-            </Text>
           </View>
 
           {/* Options Row */}
@@ -204,25 +171,6 @@ export default function LoginScreen({ navigation }: any) {
             <Text style={styles.secondaryButtonText}>Create New Account</Text>
           </TouchableOpacity>
 
-          {/* Test Connection Button */}
-          <TouchableOpacity
-            onPress={async () => {
-              setStatusMessage('🔍 Testing connection...');
-              try {
-                const response = await fetch('https://logos-platform.onrender.com/api/v1/auth/me');
-                if (response.status === 401) {
-                  setStatusMessage('✅ Backend reachable (401 = not logged in)');
-                } else {
-                  setStatusMessage(`📡 Backend responded: ${response.status}`);
-                }
-              } catch (error: any) {
-                setStatusMessage(`❌ Connection failed: ${error.message}`);
-              }
-            }}
-            style={styles.testButton}
-          >
-            <Text style={styles.testButtonText}>Test Backend Connection</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -257,18 +205,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
-  },
-  statusContainer: {
-    backgroundColor: '#e0e7ff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  statusText: {
-    color: '#3730a3',
-    fontSize: 14,
-    textAlign: 'center',
-    fontWeight: '500',
   },
   form: {
     width: '100%',
@@ -405,18 +341,5 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontSize: 16,
     fontWeight: '600',
-  },
-  testButton: {
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-  },
-  testButtonText: {
-    color: '#475569',
-    fontSize: 14,
-    fontWeight: '500',
   },
 });

@@ -11,19 +11,28 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import VerifyEmailScreen from '../screens/VerifyEmailScreen';
 
-// Main Screens
+// Main Tab Screens
 import HomeScreen from '../screens/HomeScreen';
+import FeedScreen from '../screens/FeedScreen';
 import CommunitiesScreen from '../screens/CommunitiesScreen';
 import PrayersScreen from '../screens/PrayersScreen';
-import FeedScreen from '../screens/FeedScreen';
 import DevotionalsScreen from '../screens/DevotionalsScreen';
+
+// Stack Screens (accessible from tabs)
+import AIAssistantScreen from '../screens/AIAssistantScreen';
+import StatusScreen from '../screens/StatusScreen';
+import CreateStatusScreen from '../screens/CreateStatusScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import MessagesListScreen from '../screens/MessagesListScreen';
+import ChatScreen from '../screens/ChatScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TabIcon = ({ emoji, focused }: { emoji: string; focused: boolean }) => (
-  <Text style={{ fontSize: 24, opacity: focused ? 1 : 0.6 }}>{emoji}</Text>
+  <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.55 }}>{emoji}</Text>
 );
 
 function MainTabs() {
@@ -35,12 +44,12 @@ function MainTabs() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: '#e2e8f0',
-          paddingTop: 8,
+          paddingTop: 6,
           paddingBottom: 8,
-          height: 60,
+          height: 62,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}
@@ -82,15 +91,60 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="Devotionals"
-        component={DevotionalsScreen}
+        name="More"
+        component={ProfileScreen}
         options={{
-          tabBarLabel: 'Devotionals',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📖" focused={focused} />,
-          title: 'Daily Devotionals',
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          title: 'My Profile',
         }}
       />
     </Tab.Navigator>
+  );
+}
+
+function MainStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: '#fff' },
+        headerTintColor: '#1e293b',
+        headerTitleStyle: { fontWeight: '700' },
+        headerShadowVisible: false,
+      }}
+    >
+      <Stack.Screen name="Tabs" component={MainTabs} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="AIAssistant"
+        component={AIAssistantScreen}
+        options={{ title: 'LOGOS AI Assistant' }}
+      />
+      <Stack.Screen
+        name="Status"
+        component={StatusScreen}
+        options={{ title: 'Status Updates' }}
+      />
+      <Stack.Screen
+        name="CreateStatus"
+        component={CreateStatusScreen}
+        options={{ title: 'Add Status' }}
+      />
+      <Stack.Screen
+        name="Messages"
+        component={MessagesListScreen}
+        options={{ title: 'Messages' }}
+      />
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }: any) => ({ title: route.params?.userName || 'Chat' })}
+      />
+      <Stack.Screen
+        name="Devotionals"
+        component={DevotionalsScreen}
+        options={{ title: 'Daily Devotionals' }}
+      />
+    </Stack.Navigator>
   );
 }
 
@@ -134,9 +188,10 @@ export default function AppNavigator() {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
           </>
         ) : (
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="Main" component={MainStack} />
         )}
       </Stack.Navigator>
     </NavigationContainer>

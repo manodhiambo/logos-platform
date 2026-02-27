@@ -47,7 +47,7 @@ class PostService {
     return response.data.data || response.data;
   }
 
-  async createPost(data: { content: string; communityId?: string }) {
+  async createPost(data: { content?: string; communityId?: string; mediaUrls?: string[]; postType?: string }) {
     const response = await apiClient.post('/posts', data);
     return response.data.data || response.data;
   }

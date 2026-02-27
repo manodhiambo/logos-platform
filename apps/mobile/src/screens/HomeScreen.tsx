@@ -2,60 +2,60 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function HomeScreen({ navigation }: any) {
-  const { user, logout } = useAuth();
+const QUICK_ACTIONS = [
+  { icon: '📰', title: 'Community Feed', subtitle: 'Posts, photos & updates', screen: 'Feed' },
+  { icon: '✨', title: 'Status Updates', subtitle: 'Share 24h status stories', screen: 'Status' },
+  { icon: '🤖', title: 'LOGOS AI', subtitle: 'Biblical guidance & Q&A', screen: 'AIAssistant' },
+  { icon: '💬', title: 'Messages', subtitle: 'Direct conversations', screen: 'Messages' },
+  { icon: '🏘️', title: 'Communities', subtitle: 'Join faith-based groups', screen: 'Communities' },
+  { icon: '🙏', title: 'Prayer Requests', subtitle: 'Share and pray together', screen: 'Prayers' },
+  { icon: '📖', title: 'Daily Devotionals', subtitle: 'Grow in faith daily', screen: 'Devotionals' },
+];
 
-  const handleLogout = async () => {
-    await logout();
-  };
+export default function HomeScreen({ navigation }: any) {
+  const { user } = useAuth();
+  const firstName = user?.fullName?.split(' ')[0] || 'there';
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.greeting}>Hello, {user?.fullName}! 👋</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Logout</Text>
+        <View>
+          <Text style={styles.greeting}>Good day, {firstName}! 🙏</Text>
+          <Text style={styles.subGreeting}>Welcome to LOGOS Platform</Text>
+        </View>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('More')}
+          style={styles.profileBtn}
+        >
+          <Text style={styles.profileBtnText}>
+            {(user?.fullName?.[0] || 'U').toUpperCase()}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionTitle}>Quick Actions</Text>
 
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('Communities')}
-        >
-          <Text style={styles.cardIcon}>🏘️</Text>
-          <Text style={styles.cardTitle}>Communities</Text>
-          <Text style={styles.cardSubtitle}>Join faith-based communities</Text>
-        </TouchableOpacity>
+        <View style={styles.grid}>
+          {QUICK_ACTIONS.map((action) => (
+            <TouchableOpacity
+              key={action.screen}
+              style={styles.card}
+              onPress={() => navigation.navigate(action.screen)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cardIcon}>{action.icon}</Text>
+              <Text style={styles.cardTitle}>{action.title}</Text>
+              <Text style={styles.cardSubtitle}>{action.subtitle}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('Prayers')}
-        >
-          <Text style={styles.cardIcon}>🙏</Text>
-          <Text style={styles.cardTitle}>Prayer Requests</Text>
-          <Text style={styles.cardSubtitle}>Share and pray together</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('Devotionals')}
-        >
-          <Text style={styles.cardIcon}>📖</Text>
-          <Text style={styles.cardTitle}>Daily Devotionals</Text>
-          <Text style={styles.cardSubtitle}>Grow in faith daily</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('VideoCalls')}
-        >
-          <Text style={styles.cardIcon}>📹</Text>
-          <Text style={styles.cardTitle}>Video Calls</Text>
-          <Text style={styles.cardSubtitle}>Connect with others</Text>
-        </TouchableOpacity>
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>
+            "I can do all things through Christ who strengthens me." — Philippians 4:13
+          </Text>
+        </View>
       </ScrollView>
     </View>
   );
@@ -68,61 +68,91 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#3b82f6',
-    padding: 24,
-    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingTop: 56,
+    paddingBottom: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
-    flex: 1,
   },
-  logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  subGreeting: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
-  logoutText: {
+  profileBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileBtnText: {
     color: '#fff',
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   content: {
     flex: 1,
     padding: 16,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1e293b',
-    marginBottom: 16,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
   },
   card: {
     backgroundColor: '#fff',
-    padding: 20,
+    padding: 16,
     borderRadius: 16,
-    marginBottom: 16,
+    width: '47%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
     elevation: 3,
   },
   cardIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+    fontSize: 32,
+    marginBottom: 8,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#1e293b',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   cardSubtitle: {
-    fontSize: 14,
+    fontSize: 11,
     color: '#64748b',
+    lineHeight: 16,
+  },
+  banner: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 14,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+    marginBottom: 24,
+  },
+  bannerText: {
+    fontSize: 14,
+    color: '#1e40af',
+    fontStyle: 'italic',
+    lineHeight: 20,
   },
 });
