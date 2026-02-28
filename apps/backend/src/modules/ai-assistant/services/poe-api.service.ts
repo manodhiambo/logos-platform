@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../../../config/env.config';
 import { logger } from '../../../shared/utils/logger.util';
 
@@ -23,103 +24,132 @@ Your role is to:
 
 Always cite specific Bible references when relevant. If a question is outside your biblical/theological scope, gently redirect while remaining helpful.`;
 
-// Fallback bot order - tries primary bot first, then these
-const FALLBACK_BOTS = ['Claude-3-Haiku', 'GPT-3.5-Turbo', 'Claude-instant'];
+// Correct Poe bot handles (case-sensitive, must match poe.com/<handle>)
+const POE_BOTS = [
+  'Claude-3-Haiku',
+  'Claude-3-5-Haiku',
+  'GPT-4o-Mini',
+  'Claude-Instant',
+  'GPT-3.5-Turbo',
+];
 
 class PoeApiService {
-  private apiKey: string;
+  private poeApiKey: string;
+  private anthropicApiKey: string;
   private primaryBotName: string;
-  private baseURL: string;
 
   constructor() {
-    this.apiKey = config.poeApi.apiKey;
-    this.primaryBotName = config.poeApi.botName || 'Claude-3-Haiku';
-    this.baseURL = 'https://api.poe.com/v1';
+    this.poeApiKey = config.poeApi.apiKey;
+    this.anthropicApiKey = process.env.ANTHROPIC_API_KEY || '';
+    // Always start with Claude-3-Haiku regardless of env var override
+    this.primaryBotName = 'Claude-3-Haiku';
   }
 
+  /** Try Anthropic SDK directly — most reliable */
+  private async callAnthropic(message: string, history: PoeMessage[]): Promise<string> {
+    if (!this.anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY not set');
+    }
+
+    const client = new Anthropic({ apiKey: this.anthropicApiKey });
+
+    const historyMessages = history.map(msg => ({
+      role: (msg.role === 'bot' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [...historyMessages, { role: 'user', content: message }],
+    });
+
+    const text = response.content[0]?.type === 'text' ? response.content[0].text : '';
+    if (!text) throw new Error('Empty Anthropic response');
+    return text;
+  }
+
+  /** Try Poe OpenAI-compatible API */
   private async callPoeApi(botName: string, messages: any[]): Promise<string> {
     const response = await axios.post(
-      `${this.baseURL}/chat/completions`,
-      {
-        model: botName,
-        messages,
-      },
+      'https://api.poe.com/v1/chat/completions',
+      { model: botName, messages },
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${this.poeApiKey}`,
         },
         timeout: 60000,
       }
     );
 
     const text = response.data.choices?.[0]?.message?.content || '';
-    if (!text) {
-      throw new Error('Empty response from POE API');
-    }
+    if (!text) throw new Error('Empty POE response');
     return text;
   }
 
   async sendMessage(message: string, conversationHistory: PoeMessage[] = []): Promise<PoeResponse> {
-    if (!this.apiKey) {
-      logger.warn('POE API key not configured');
-      throw new Error('AI service is not configured. Please contact support.');
-    }
-
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...conversationHistory.map(msg => ({
-        role: msg.role === 'bot' ? 'assistant' : 'user',
-        content: msg.content,
-      })),
-      { role: 'user', content: message },
-    ];
-
-    // Try primary bot first, then fallbacks
-    const botsToTry = [this.primaryBotName, ...FALLBACK_BOTS.filter(b => b !== this.primaryBotName)];
-
-    for (const botName of botsToTry) {
+    // 1. Try Anthropic first if key is available (most reliable)
+    if (this.anthropicApiKey) {
       try {
-        logger.info(`Trying POE bot: ${botName}`);
-        const text = await this.callPoeApi(botName, messages);
-        logger.info(`POE response received from bot: ${botName}`);
-        return { text, id: `poe_${Date.now()}` };
+        logger.info('Using Anthropic API for AI response');
+        const text = await this.callAnthropic(message, conversationHistory);
+        return { text, id: `anthropic_${Date.now()}` };
       } catch (error: any) {
-        const status = error.response?.status;
-
-        if (status === 401 || status === 403) {
-          // Auth error - no point trying other bots
-          logger.error('POE API authentication failed');
-          throw new Error('AI service authentication failed. Please contact support.');
-        }
-
-        if (status === 429) {
-          throw new Error('AI service is busy. Please try again in a moment.');
-        }
-
-        if (status === 404 || status === 400) {
-          // Bot not found - try next one
-          logger.warn(`Bot "${botName}" not available, trying next...`);
-          continue;
-        }
-
-        logger.error(`POE API error with bot ${botName}:`, error.message);
-        // Try next bot on generic errors too
-        continue;
+        logger.error('Anthropic API failed:', error.message);
+        // Fall through to POE
       }
     }
 
-    throw new Error('AI assistant is temporarily unavailable. Please try again later.');
-  }
+    // 2. Try POE with multiple bot names
+    if (this.poeApiKey) {
+      const botsToTry = [this.primaryBotName, ...POE_BOTS.filter(b => b !== this.primaryBotName)];
 
-  async sendMessageAlternative(message: string): Promise<PoeResponse> {
-    return this.sendMessage(message, []);
+      const messages = [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...conversationHistory.map(msg => ({
+          role: msg.role === 'bot' ? 'assistant' : 'user',
+          content: msg.content,
+        })),
+        { role: 'user', content: message },
+      ];
+
+      for (const botName of botsToTry) {
+        try {
+          logger.info(`Trying POE bot: ${botName}`);
+          const text = await this.callPoeApi(botName, messages);
+          logger.info(`POE success with bot: ${botName}`);
+          return { text, id: `poe_${Date.now()}` };
+        } catch (error: any) {
+          const status = error.response?.status;
+          const errBody = error.response?.data;
+
+          if (status === 401 || status === 403) {
+            logger.error(`POE auth failed (${status}):`, errBody);
+            break; // Auth errors — don't retry with other bots
+          }
+          if (status === 429) {
+            logger.warn('POE rate limited');
+            break;
+          }
+          logger.warn(`POE bot "${botName}" failed (${status}): ${error.message}`);
+          // Continue to next bot for 404, 400, network errors
+        }
+      }
+    }
+
+    // 3. Both failed — throw helpful error
+    const hasKeys = this.anthropicApiKey || this.poeApiKey;
+    if (!hasKeys) {
+      throw new Error('AI service is not configured. Set ANTHROPIC_API_KEY in environment variables.');
+    }
+    throw new Error('AI assistant is temporarily unavailable. Please try again later.');
   }
 
   extractBibleReferences(text: string): any[] {
     const references: any[] = [];
     const pattern = /\b([1-3]?\s?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(\d+):(\d+)(?:-(\d+))?\b/g;
-
     let match;
     while ((match = pattern.exec(text)) !== null) {
       references.push({
@@ -130,16 +160,11 @@ class PoeApiService {
         reference: match[0],
       });
     }
-
     return references;
   }
 
   generateTitle(message: string): string {
-    const maxLength = 50;
-    if (message.length <= maxLength) {
-      return message;
-    }
-    return message.substring(0, maxLength - 3) + '...';
+    return message.length <= 50 ? message : message.substring(0, 47) + '...';
   }
 }
 

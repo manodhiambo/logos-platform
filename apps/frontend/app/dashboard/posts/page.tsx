@@ -283,12 +283,11 @@ function StatusStrip() {
     }).catch(() => {});
   }, []);
 
-  if (groups.length === 0) return null;
-
+  // Always show the strip — at minimum the "Add Status" button is visible
   return (
     <Card className="p-3">
-      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
-        {/* Add status button */}
+      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        {/* Add status button — always visible */}
         <Link href="/dashboard/status/new" className="flex-shrink-0 flex flex-col items-center gap-1">
           <div className="w-14 h-14 rounded-full border-2 border-dashed border-blue-400 flex items-center justify-center bg-blue-50 text-blue-500 text-2xl">
             +
@@ -296,22 +295,25 @@ function StatusStrip() {
           <span className="text-xs text-gray-500">Add</span>
         </Link>
 
-        {groups.map(group => (
-          <Link key={group.user.id} href="/dashboard/status" className="flex-shrink-0 flex flex-col items-center gap-1">
-            <div className="w-14 h-14 rounded-full border-2 border-blue-500 p-0.5">
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden">
-                {group.user?.avatarUrl ? (
-                  <img src={group.user.avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  (group.user?.fullName?.[0] || 'U').toUpperCase()
-                )}
+        {groups.map(group => {
+          if (!group?.user?.id) return null;
+          return (
+            <Link key={group.user.id} href="/dashboard/status" className="flex-shrink-0 flex flex-col items-center gap-1">
+              <div className="w-14 h-14 rounded-full border-2 border-blue-500 p-0.5">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold overflow-hidden">
+                  {group.user?.avatarUrl ? (
+                    <img src={group.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (group.user?.fullName?.[0] || 'U').toUpperCase()
+                  )}
+                </div>
               </div>
-            </div>
-            <span className="text-xs text-gray-600 truncate w-14 text-center">
-              {group.user?.fullName?.split(' ')[0] || group.user?.username}
-            </span>
-          </Link>
-        ))}
+              <span className="text-xs text-gray-600 truncate w-14 text-center">
+                {group.user?.fullName?.split(' ')[0] || group.user?.username}
+              </span>
+            </Link>
+          );
+        })}
       </div>
     </Card>
   );

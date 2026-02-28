@@ -62,15 +62,8 @@ class AIConversationService {
     });
 
     try {
-      // Get AI response from POE
-      let aiResponse;
-      try {
-        aiResponse = await poeApiService.sendMessage(content, conversationHistory);
-      } catch (primaryError) {
-        // Try alternative endpoint
-        console.log('Primary endpoint failed, trying alternative...');
-        aiResponse = await poeApiService.sendMessageAlternative(content);
-      }
+      // Get AI response
+      const aiResponse = await poeApiService.sendMessage(content, conversationHistory);
 
       // Extract Bible references
       const bibleReferences = poeApiService.extractBibleReferences(aiResponse.text);
