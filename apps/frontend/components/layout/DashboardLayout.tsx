@@ -1,13 +1,16 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import {
+  Home, Users, MessageCircle, Bell, Search, User, Video,
+  Heart, BookOpen, LogOut, Shield, BookMarked, Menu,
+  Sparkles, Radio, Globe, Hash, PlusCircle,
+} from 'lucide-react';
 import AnnouncementBanner from '@/components/announcements/AnnouncementBanner';
+import apiClient from '@/lib/api-client';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -16,8 +19,9 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading, logout, isAuthenticated } = useAuth();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -25,257 +29,289 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }, [loading, isAuthenticated, router]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      apiClient.get('/messages/unread-count')
+        .then(r => setUnreadCount(r.data?.data?.count || 0))
+        .catch(() => {});
+    }
+  }, [isAuthenticated]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F2F5]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading...</p>
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="mt-3 text-gray-500 text-sm">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   const isAdmin = user && ['admin', 'super_admin'].includes(user.role || '');
+  const avatarInitial = (user?.fullName?.[0] || user?.username?.[0] || 'U').toUpperCase();
+
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname?.startsWith(href);
+
+  const centerTabs = [
+    { href: '/dashboard', icon: Home, label: 'Home' },
+    { href: '/dashboard/friends', icon: Users, label: 'Friends' },
+    { href: '/dashboard/posts', icon: Hash, label: 'Feed' },
+    { href: '/dashboard/prayers', icon: Heart, label: 'Prayer' },
+    { href: '/dashboard/video-calls', icon: Video, label: 'Watch' },
+  ];
+
+  const sideNavItems = [
+    { href: '/dashboard/friends', icon: Users, label: 'Friends' },
+    { href: '/dashboard/communities', icon: Globe, label: 'Communities' },
+    { href: '/dashboard/messages', icon: MessageCircle, label: 'Messages', badge: unreadCount },
+    { href: '/dashboard/status', icon: Radio, label: 'Status' },
+    { href: '/dashboard/video-calls', icon: Video, label: 'Video Calls' },
+    { href: '/dashboard/devotionals', icon: BookOpen, label: 'Devotionals' },
+    { href: '/dashboard/bible', icon: BookMarked, label: 'Bible' },
+    { href: '/dashboard/prayers', icon: Heart, label: 'Prayer Requests' },
+    { href: '/dashboard/ai-assistant', icon: Sparkles, label: 'AI Assistant' },
+    { href: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
+  ];
+
+  const AvatarEl = ({ size = 9 }: { size?: number }) => (
+    <div className={`w-${size} h-${size} rounded-full overflow-hidden shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm`}>
+      {user?.avatarUrl
+        ? <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
+        : avatarInitial}
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Top Navigation Bar - Sticky */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo and Menu Toggle */}
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-md hover:bg-slate-100 transition-colors"
-                aria-label="Toggle sidebar"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <span className="text-2xl">✝️</span>
-                <span className="text-xl font-bold text-primary hidden sm:block">LOGOS</span>
-              </Link>
-            </div>
+    <div className="min-h-screen bg-[#F0F2F5]">
 
-            {/* Center - Quick Links (hidden on mobile) */}
-            <div className="hidden lg:flex items-center gap-1">
-              <Link href="/dashboard/messages">
-                <Button variant="ghost" size="sm" className="relative">
-                  💬 Messages
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 bg-red-500 text-white px-1.5 py-0.5 text-xs">
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </Link>
-              <Link href="/dashboard/notifications">
-                <Button variant="ghost" size="sm">
-                  🔔 Notifications
-                </Button>
-              </Link>
-              <Link href="/dashboard/prayers">
-                <Button variant="ghost" size="sm">
-                  🙏 Prayers
-                </Button>
-              </Link>
-            </div>
+      {/* ── TOP NAVBAR ── */}
+      <header className="fixed top-0 inset-x-0 h-14 bg-white shadow-md z-50 flex items-center px-2 gap-2">
 
-            {/* User Menu */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-600 hidden md:block">
-                {user?.fullName}
-              </span>
-              <Link href="/dashboard/profile">
-                <Avatar className="w-9 h-9 cursor-pointer hover:ring-2 ring-primary transition-all">
-                  <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 text-white flex items-center justify-center font-semibold">
-                    {user?.avatarUrl ? (
-                      <img src={user.avatarUrl} alt={user.fullName} className="w-full h-full object-cover" />
-                    ) : (
-                      user?.fullName?.charAt(0).toUpperCase()
-                    )}
-                  </div>
-                </Avatar>
-              </Link>
-              {isAdmin && (
-                <Link href="/dashboard/admin">
-                  <Button variant="outline" size="sm" className="hidden sm:flex">
-                    🛡️ Admin
-                  </Button>
-                </Link>
-              )}
-              <Button variant="outline" size="sm" onClick={logout} className="hidden sm:flex">
-                Logout
-              </Button>
+        {/* Left: Logo + Search */}
+        <div className="flex items-center gap-2 w-[60px] lg:w-[280px] shrink-0">
+          <Link href="/dashboard" className="shrink-0">
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-black text-xl select-none">
+              L
             </div>
+          </Link>
+          <div className="relative hidden lg:block flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search LOGOS..."
+              className="w-full bg-gray-100 hover:bg-gray-200 focus:bg-white focus:ring-2 focus:ring-blue-500 rounded-full py-2 pl-9 pr-3 text-sm outline-none transition"
+            />
           </div>
+        </div>
+
+        {/* Center: Tab icons */}
+        <div className="flex-1 hidden md:flex items-end justify-center gap-0 h-full">
+          {centerTabs.map(({ href, icon: Icon, label }) => (
+            <Link
+              key={href}
+              href={href}
+              title={label}
+              className={`relative flex items-center justify-center w-24 h-full transition group ${
+                isActive(href)
+                  ? 'text-blue-600 border-b-[3px] border-blue-600'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <Icon className="w-6 h-6" />
+              {/* tooltip */}
+              <span className="absolute bottom-full mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">
+                {label}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Right: Icon buttons + Avatar */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <Link
+            href="/dashboard/messages"
+            className="relative w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition"
+            title="Messages"
+          >
+            <MessageCircle className="w-5 h-5 text-gray-800" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
+
+          <Link
+            href="/dashboard/notifications"
+            className="relative w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5 text-gray-800" />
+          </Link>
+
+          <Link href="/dashboard/profile" className="rounded-full ring-2 ring-transparent hover:ring-blue-400 transition">
+            <AvatarEl size={10} />
+          </Link>
+
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileMenuOpen(v => !v)}
+            className="md:hidden w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside
-          className={`${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 transition-transform duration-300 ease-in-out mt-0 overflow-y-auto`}
-          style={{ top: '64px', height: 'calc(100vh - 64px)' }}
-        >
-          <nav className="p-4 space-y-2">
-            <NavLink href="/dashboard" icon="🏠">
-              Dashboard
-            </NavLink>
-            <NavLink href="/dashboard/profile" icon="👤">
-              My Profile
-            </NavLink>
-            <NavLink href="/dashboard/messages" icon="💬">
-              Messages
-              {unreadCount > 0 && (
-                <Badge className="ml-auto bg-red-500 text-white">{unreadCount}</Badge>
-              )}
-            </NavLink>
-            <NavLink href="/dashboard/ai-assistant" icon="🤖">
-              AI Assistant
-            </NavLink>
+      {/* ── BODY ── */}
+      <div className="pt-14 flex min-h-screen">
 
-            <div className="border-t border-slate-200 my-2 pt-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
-                🤝 Social
-              </p>
-            </div>
+        {/* ── LEFT SIDEBAR ── */}
+        <aside className="hidden lg:flex flex-col w-[280px] shrink-0 fixed top-14 left-0 h-[calc(100vh-56px)] overflow-y-auto">
+          <div className="flex flex-col h-full p-2">
 
-            <NavLink href="/dashboard/friends" icon="👥">
-              Friends
-            </NavLink>
-            <NavLink href="/dashboard/friends/requests" icon="📨">
-              Friend Requests
-            </NavLink>
-            <NavLink href="/dashboard/friends/find" icon="🔍">
-              Find Friends
-            </NavLink>
-            <NavLink href="/dashboard/followers" icon="👁️">
-              Followers
-            </NavLink>
-            <NavLink href="/dashboard/following" icon="➕">
-              Following
-            </NavLink>
+            {/* Profile link */}
+            <Link
+              href="/dashboard/profile"
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-200 transition mb-1"
+            >
+              <AvatarEl size={9} />
+              <span className="font-semibold text-[15px] text-gray-900 leading-tight">
+                {user?.fullName}
+              </span>
+            </Link>
 
-            <div className="border-t border-slate-200 my-2 pt-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
-                Community
-              </p>
-            </div>
-
-            <NavLink href="/dashboard/communities" icon="🏘️">
-              Communities
-            </NavLink>
-            <NavLink href="/dashboard/posts" icon="📝">
-              Posts & Feed
-            </NavLink>
-            <NavLink href="/dashboard/status" icon="✨">
-              Status
-            </NavLink>
-
-            <div className="border-t border-slate-200 my-2 pt-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
-                Spiritual
-              </p>
-            </div>
-
-            <NavLink href="/dashboard/prayers" icon="🙏">
-              Prayer Requests
-            </NavLink>
-            <NavLink href="/dashboard/devotionals" icon="📖">
-              Devotionals
-            </NavLink>
-            <NavLink href="/dashboard/bible" icon="📕">
-              Bible
-            </NavLink>
-
-            <div className="border-t border-slate-200 my-2 pt-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
-                Media
-              </p>
-            </div>
-
-            <NavLink href="/dashboard/video-calls" icon="🎥">
-              Video Calls
-            </NavLink>
-            <NavLink href="/dashboard/notifications" icon="🔔">
-              Notifications
-            </NavLink>
+            {/* Nav items */}
+            {sideNavItems.map(item => (
+              <SideNavItem key={item.href} {...item} active={isActive(item.href)} />
+            ))}
 
             {isAdmin && (
-              <>
-                <div className="border-t border-slate-200 my-2 pt-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase px-4 mb-2">
-                    🛡️ Admin
-                  </p>
-                </div>
-                <NavLink href="/dashboard/admin" icon="📊">
-                  Admin Dashboard
-                </NavLink>
-                <NavLink href="/dashboard/admin/users" icon="👥">
-                  User Management
-                </NavLink>
-                <NavLink href="/dashboard/admin/announcements" icon="📢">
-                  Announcements
-                </NavLink>
-              </>
+              <SideNavItem href="/dashboard/admin" icon={Shield} label="Admin Panel" active={isActive('/dashboard/admin')} />
             )}
 
-            <div className="border-t border-slate-200 my-2 pt-2 lg:hidden">
-              <Button variant="outline" size="sm" onClick={logout} className="w-full">
-                Logout
-              </Button>
+            <div className="border-t border-gray-200 my-2" />
+
+            <button
+              onClick={logout}
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-200 transition text-gray-700 w-full"
+            >
+              <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                <LogOut className="w-5 h-5 text-gray-600" />
+              </div>
+              <span className="font-semibold text-[15px]">Log Out</span>
+            </button>
+
+            <div className="mt-auto pt-4 px-2">
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Privacy · Terms · Cookies<br />© 2025 LOGOS Platform
+              </p>
             </div>
-          </nav>
+          </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 min-h-screen lg:ml-0" style={{ marginTop: '0' }}>
-          <div className="p-4 sm:p-6 lg:p-8">
-            {/* Admin Announcements Banner */}
-            <AnnouncementBanner />
-            
-            {children}
-          </div>
+        {/* ── MAIN CONTENT ── */}
+        <main className="flex-1 lg:ml-[280px] min-w-0 pb-16 lg:pb-0">
+          <AnnouncementBanner />
+          {children}
         </main>
       </div>
 
-      {/* Overlay for mobile when sidebar is open */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
-          style={{ top: '64px' }}
-          onClick={() => setSidebarOpen(false)}
-        />
+      {/* ── MOBILE BOTTOM NAV ── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 h-14 bg-white border-t border-gray-200 z-40 flex items-center justify-around">
+        {[
+          { href: '/dashboard', icon: Home },
+          { href: '/dashboard/friends', icon: Users },
+          { href: '/dashboard/posts', icon: PlusCircle },
+          { href: '/dashboard/messages', icon: MessageCircle, badge: unreadCount },
+          { href: '/dashboard/profile', icon: User },
+        ].map(({ href, icon: Icon, badge }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`relative flex items-center justify-center w-14 h-14 ${
+              isActive(href) ? 'text-blue-600' : 'text-gray-500'
+            }`}
+          >
+            <Icon className="w-6 h-6" />
+            {badge && badge > 0 ? (
+              <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[15px] h-[15px] flex items-center justify-center px-0.5">
+                {badge}
+              </span>
+            ) : null}
+          </Link>
+        ))}
+      </nav>
+
+      {/* ── MOBILE SLIDE-OUT MENU ── */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+          <div className="absolute top-14 right-0 bottom-14 w-72 bg-white shadow-2xl overflow-y-auto p-2">
+            <Link href="/dashboard/profile" className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 mb-2" onClick={() => setMobileMenuOpen(false)}>
+              <AvatarEl size={10} />
+              <div>
+                <div className="font-semibold text-gray-900">{user?.fullName}</div>
+                <div className="text-xs text-gray-500">View profile</div>
+              </div>
+            </Link>
+            <div className="border-t border-gray-100 mb-2" />
+            {sideNavItems.map(item => (
+              <SideNavItem key={item.href} {...item} active={isActive(item.href)} onClick={() => setMobileMenuOpen(false)} />
+            ))}
+            {isAdmin && (
+              <SideNavItem href="/dashboard/admin" icon={Shield} label="Admin Panel" active={isActive('/dashboard/admin')} onClick={() => setMobileMenuOpen(false)} />
+            )}
+            <div className="border-t border-gray-100 my-2" />
+            <button
+              onClick={() => { logout(); setMobileMenuOpen(false); }}
+              className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-100 w-full text-gray-700"
+            >
+              <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center">
+                <LogOut className="w-5 h-5" />
+              </div>
+              <span className="font-semibold">Log Out</span>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-interface NavLinkProps {
+function SideNavItem({
+  href, icon: Icon, label, active, badge, onClick,
+}: {
   href: string;
-  icon: string;
-  children: React.ReactNode;
-}
-
-function NavLink({ href, icon, children }: NavLinkProps) {
+  icon: any;
+  label: string;
+  active?: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 transition-colors text-slate-700 hover:text-primary group"
+      onClick={onClick}
+      className={`flex items-center gap-3 p-2 rounded-xl transition mb-0.5 ${
+        active ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-200'
+      }`}
     >
-      <span className="text-xl group-hover:scale-110 transition-transform">{icon}</span>
-      <span className="font-medium flex-1">{children}</span>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+        active ? 'bg-blue-100' : 'bg-gray-200'
+      }`}>
+        <Icon className={`w-5 h-5 ${active ? 'text-blue-700' : 'text-gray-700'}`} />
+      </div>
+      <span className="font-semibold text-[15px] flex-1 truncate">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </Link>
   );
 }

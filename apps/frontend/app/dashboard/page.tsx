@@ -293,36 +293,36 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div className="bg-gradient-to-r from-primary to-purple-600 rounded-xl p-8 text-white shadow-lg">
-        <h1 className="text-3xl font-bold mb-2">
-          {getGreeting()}, {user?.fullName}! ✨
-        </h1>
-        <p className="text-blue-100">
-          {new Date().toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-            <div className="text-2xl font-bold">{stats.totalFriends}</div>
-            <div className="text-sm text-blue-100">Friends</div>
+    <div className="max-w-4xl mx-auto px-3 py-4 space-y-4">
+      {/* ── Greeting Hero ── */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl p-6 text-white shadow-md">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-full overflow-hidden bg-white/20 flex items-center justify-center text-white font-black text-2xl shrink-0">
+            {user?.avatarUrl
+              ? <img src={user.avatarUrl} alt={user?.fullName} className="w-full h-full object-cover" />
+              : (user?.fullName?.[0] || 'U').toUpperCase()}
           </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-            <div className="text-2xl font-bold">{stats.communitiesJoined}</div>
-            <div className="text-sm text-blue-100">Communities</div>
+          <div>
+            <h1 className="text-2xl font-bold">
+              {getGreeting()}, {user?.fullName?.split(' ')[0]}! ✝️
+            </h1>
+            <p className="text-blue-100 text-sm">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-            <div className="text-2xl font-bold">{stats.prayersAnswered}</div>
-            <div className="text-sm text-blue-100">Prayers Answered</div>
-          </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-            <div className="text-2xl font-bold">{stats.devotionalStreak}</div>
-            <div className="text-sm text-blue-100">Day Streak 🔥</div>
-          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2">
+          {[
+            { value: stats.totalFriends, label: 'Friends' },
+            { value: stats.communitiesJoined, label: 'Communities' },
+            { value: stats.prayersAnswered, label: 'Answered' },
+            { value: stats.devotionalStreak, label: 'Day Streak 🔥' },
+          ].map(({ value, label }) => (
+            <div key={label} className="bg-white/15 backdrop-blur-sm rounded-xl px-3 py-2 text-center">
+              <div className="text-xl font-bold">{value}</div>
+              <div className="text-xs text-blue-100">{label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -369,21 +369,21 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {/* ── Quick Actions ── */}
       <div>
-        <h2 className="text-xl font-semibold text-slate-800 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-base font-semibold text-gray-500 mb-2 px-1">Quick Actions</h2>
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
           {quickActions.map((action, index) => (
             <Link key={index} href={action.href}>
-              <Card className={`${action.color} border-2 p-6 cursor-pointer transition-all hover:shadow-md relative h-full`}>
+              <div className="bg-white rounded-2xl shadow-sm p-4 cursor-pointer hover:shadow-md transition-all text-center relative group">
                 {action.badge !== undefined && action.badge > 0 && (
-                  <Badge className="absolute top-3 right-3 bg-red-500 text-white">
+                  <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5">
                     {action.badge}
-                  </Badge>
+                  </span>
                 )}
-                <div className="text-4xl mb-3">{action.icon}</div>
-                <h3 className="font-semibold text-slate-800 mb-1">{action.title}</h3>
-                <p className="text-sm text-slate-600">{action.description}</p>
-              </Card>
+                <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">{action.icon}</div>
+                <p className="text-xs font-semibold text-gray-700 leading-tight">{action.title}</p>
+              </div>
             </Link>
           ))}
         </div>
