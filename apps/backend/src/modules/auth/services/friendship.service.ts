@@ -156,12 +156,12 @@ class FriendshipService {
         {
           model: User,
           as: 'requester',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
         {
           model: User,
           as: 'addressee',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
       ],
       order: [['createdAt', 'DESC']],
@@ -205,7 +205,7 @@ class FriendshipService {
         {
           model: User,
           as: 'requester',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
       ],
       order: [['createdAt', 'DESC']],
@@ -237,7 +237,7 @@ class FriendshipService {
         {
           model: User,
           as: 'addressee',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
       ],
       order: [['createdAt', 'DESC']],
@@ -345,7 +345,7 @@ class FriendshipService {
         {
           model: User,
           as: 'follower',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
       ],
       order: [['createdAt', 'DESC']],
@@ -380,7 +380,7 @@ class FriendshipService {
         {
           model: User,
           as: 'following',
-          attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+          attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
         },
       ],
       order: [['createdAt', 'DESC']],
@@ -432,7 +432,7 @@ class FriendshipService {
                 },
               },
               {
-                email: {
+                username: {
                   [Op.iLike]: `%${query}%`,
                 },
               },
@@ -440,7 +440,7 @@ class FriendshipService {
           },
         ],
       },
-      attributes: ['id', 'fullName', 'email', 'avatarUrl', 'bio'],
+      attributes: ['id', 'fullName', 'username', 'avatarUrl', 'bio'],
       limit,
       offset,
       order: [['fullName', 'ASC']],

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { friendshipService } from '@/lib/services';
+import apiClient from '@/lib/api-client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,10 +38,27 @@ export default function FindFriendsPage() {
     try {
       await friendshipService.sendFriendRequest(userId);
       alert('Friend request sent! 🎉');
-      // Refresh search to update button states
       handleSearch(new Event('submit') as any);
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to send request');
+      alert(error.message || 'Failed to send request');
+    }
+  };
+
+  const handleVideoCall = async (targetUser: any) => {
+    try {
+      const response = await apiClient.post('/video-calls', {
+        title: `Call with ${targetUser.fullName}`,
+        type: 'one_on_one',
+        purpose: 'general',
+        maxParticipants: 2,
+        // No scheduledAt → starts immediately
+      });
+      const callId = response.data.data?.call?.id;
+      if (callId) {
+        window.location.href = `/dashboard/video-calls/${callId}`;
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to start video call');
     }
   };
 
@@ -53,7 +71,7 @@ export default function FindFriendsPage() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, username, or email..."
+            placeholder="Search by name or username..."
             className="flex-1"
           />
           <Button type="submit" disabled={searching}>
@@ -88,13 +106,24 @@ export default function FindFriendsPage() {
                 {foundUser.bio && (
                   <p className="text-sm text-gray-700 mb-4 line-clamp-2">{foundUser.bio}</p>
                 )}
-                <Button
-                  size="sm"
-                  onClick={() => handleSendRequest(foundUser.id)}
-                  className="w-full"
-                >
-                  👥 Add Friend
-                </Button>
+                <div className="flex gap-2 w-full">
+                  <Button
+                    size="sm"
+                    onClick={() => handleSendRequest(foundUser.id)}
+                    className="flex-1"
+                  >
+                    👥 Add Friend
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleVideoCall(foundUser)}
+                    title="Start video call"
+                    className="px-3"
+                  >
+                    📹
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}

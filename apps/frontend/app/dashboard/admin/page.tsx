@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -42,18 +41,15 @@ export default function AdminDashboardPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading admin panel...</p>
-        </div>
-      </DashboardLayout>
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-4 text-slate-600">Loading admin panel...</p>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
@@ -174,7 +170,7 @@ export default function AdminDashboardPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
 

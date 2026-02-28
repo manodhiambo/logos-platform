@@ -33,6 +33,7 @@ export default function VideoCallsPage() {
   const [myCallHistory, setMyCallHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [startingInstantCall, setStartingInstantCall] = useState(false);
 
   useEffect(() => {
     fetchCalls();
@@ -58,14 +59,32 @@ export default function VideoCallsPage() {
 
   const joinCall = async (callId: string) => {
     try {
-      // Just join - backend handles starting if needed
-      const response = await apiClient.post(`/video-calls/${callId}/join`);
-      
-      // Redirect to call room
+      await apiClient.post(`/video-calls/${callId}/join`);
       window.location.href = `/dashboard/video-calls/${callId}`;
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Failed to join call');
+      alert(error.message || 'Failed to join call');
       console.error('Join call error:', error);
+    }
+  };
+
+  const startInstantCall = async () => {
+    setStartingInstantCall(true);
+    try {
+      const response = await apiClient.post('/video-calls', {
+        title: `${user?.fullName || 'My'}'s Call`,
+        type: 'group',
+        purpose: 'general',
+        maxParticipants: 50,
+        // No scheduledAt → status becomes ONGOING immediately
+      });
+      const callId = response.data.data?.call?.id;
+      if (callId) {
+        window.location.href = `/dashboard/video-calls/${callId}`;
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to start call');
+    } finally {
+      setStartingInstantCall(false);
     }
   };
 
@@ -120,9 +139,19 @@ export default function VideoCallsPage() {
     <div className="p-4 md:p-6 space-y-4 md:space-y-6 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h1 className="text-2xl md:text-3xl font-bold">🎥 Video Calls</h1>
-        <Button onClick={() => setShowCreateModal(true)} size="sm" className="w-full sm:w-auto">
-          + Schedule Call
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button
+            onClick={startInstantCall}
+            disabled={startingInstantCall}
+            size="sm"
+            className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700"
+          >
+            {startingInstantCall ? '⏳ Starting...' : '📹 Start Call Now'}
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)} size="sm" variant="outline" className="flex-1 sm:flex-none">
+            📅 Schedule Call
+          </Button>
+        </div>
       </div>
 
       {showCreateModal && (
