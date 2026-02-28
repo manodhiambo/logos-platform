@@ -18,6 +18,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     fullName: '',
+    phoneNumber: '',
     spiritualJourneyStage: 'new_believer',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -62,12 +63,11 @@ export default function RegisterPage() {
         password: formData.password,
         confirmPassword: formData.confirmPassword,
         fullName: formData.fullName,
+        phoneNumber: formData.phoneNumber || undefined,
         spiritualJourneyStage: formData.spiritualJourneyStage,
       });
-      
-      if (result.needsVerification) {
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
-      }
+
+      router.push('/login?registered=1');
     } catch (err: any) {
       const errorMessage = err.message || 'Registration failed. Please try again.';
       setError(errorMessage);
@@ -141,6 +141,22 @@ export default function RegisterPage() {
                 required
                 disabled={loading}
               />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="phoneNumber" className="text-sm font-medium">
+                Phone Number <span className="text-slate-400 font-normal">(optional — to receive code via SMS)</span>
+              </label>
+              <Input
+                id="phoneNumber"
+                name="phoneNumber"
+                type="tel"
+                placeholder="+254712345678"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                disabled={loading}
+              />
+              <p className="text-xs text-slate-500">Include country code, e.g. +254 for Kenya</p>
             </div>
 
             <div className="space-y-2">

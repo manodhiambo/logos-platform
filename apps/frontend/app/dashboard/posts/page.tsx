@@ -33,13 +33,14 @@ interface Comment {
 }
 
 function MediaGallery({ urls }: { urls: string[] }) {
-  if (!urls || urls.length === 0) return null;
+  const safeUrls = Array.isArray(urls) ? urls.filter(u => typeof u === 'string' && u.length > 0) : [];
+  if (safeUrls.length === 0) return null;
 
   const isVideo = (url: string) =>
     url.match(/\.(mp4|mov|webm|avi)(\?|$)/i) || url.includes('/video/');
 
-  if (urls.length === 1) {
-    const url = urls[0];
+  if (safeUrls.length === 1) {
+    const url = safeUrls[0];
     return (
       <div className="mt-3 rounded-xl overflow-hidden bg-black">
         {isVideo(url) ? (
@@ -62,8 +63,8 @@ function MediaGallery({ urls }: { urls: string[] }) {
   }
 
   return (
-    <div className={`mt-3 grid gap-1 rounded-xl overflow-hidden ${urls.length === 2 ? 'grid-cols-2' : urls.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
-      {urls.slice(0, 4).map((url, i) => (
+    <div className={`mt-3 grid gap-1 rounded-xl overflow-hidden ${safeUrls.length === 2 ? 'grid-cols-2' : safeUrls.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      {safeUrls.slice(0, 4).map((url, i) => (
         <div key={i} className="relative aspect-square bg-black">
           {isVideo(url) ? (
             <video src={url} className="w-full h-full object-cover" preload="metadata" />
@@ -75,9 +76,9 @@ function MediaGallery({ urls }: { urls: string[] }) {
               onClick={() => window.open(url, '_blank')}
             />
           )}
-          {i === 3 && urls.length > 4 && (
+          {i === 3 && safeUrls.length > 4 && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white text-2xl font-bold">
-              +{urls.length - 4}
+              +{safeUrls.length - 4}
             </div>
           )}
         </div>

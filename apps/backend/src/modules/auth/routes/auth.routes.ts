@@ -10,6 +10,7 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  resendViaSmsSchema,
 } from '../validators/auth.validator';
 
 const router = Router();
@@ -20,6 +21,8 @@ router.post('/register', validateRequest(registerSchema), authController.registe
 router.post('/verify-email', validateRequest(verifyEmailSchema), authController.verifyEmail);
 
 router.post('/resend-verification', validateRequest(resendVerificationSchema), authController.resendVerification);
+
+router.post('/resend-verification-sms', validateRequest(resendViaSmsSchema), authController.resendViaSms);
 
 router.post('/login', validateRequest(loginSchema), authController.login);
 

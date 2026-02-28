@@ -71,7 +71,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string, username: string): Promise<boolean> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'https://logos-grace.org'}/reset-password?token=${resetToken}`;
     const subject = 'Reset Your Password - LOGOS Platform';
     const html = this.getPasswordResetEmailTemplate(resetUrl, username);
     const text = `You requested a password reset. Click this link to reset your password: ${resetUrl}. This link will expire in 1 hour.`;

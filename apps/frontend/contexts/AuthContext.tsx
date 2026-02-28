@@ -33,6 +33,7 @@ interface RegisterData {
   password: string;
   fullName: string;
   confirmPassword?: string;
+  phoneNumber?: string;
   spiritualJourneyStage?: string;
 }
 

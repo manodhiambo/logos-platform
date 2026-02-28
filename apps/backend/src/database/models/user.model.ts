@@ -36,6 +36,7 @@ export interface UserAttributes {
   denomination?: string;
   country?: string;
   timezone?: string;
+  phoneNumber?: string;
   emailVerified: boolean;
   emailVerificationToken?: string;
   emailVerificationExpires?: Date;
@@ -71,6 +72,7 @@ class User extends Model<UserAttributes> implements UserAttributes {
   public denomination?: string;
   public country?: string;
   public timezone?: string;
+  public phoneNumber?: string;
   public emailVerified!: boolean;
   public emailVerificationToken?: string;
   public emailVerificationExpires?: Date;
@@ -192,6 +194,10 @@ User.init(
     },
     timezone: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    phoneNumber: {
+      type: DataTypes.STRING(20),
       allowNull: true,
     },
     emailVerified: {

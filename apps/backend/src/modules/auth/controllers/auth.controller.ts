@@ -63,6 +63,16 @@ class AuthController {
     }
   }
 
+  async resendViaSms(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, phoneNumber } = req.body;
+      await authService.resendViaSms(email, phoneNumber);
+      return successResponse(res, 'Verification code sent via SMS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async forgotPassword(req: Request, res: Response, next: NextFunction) {
     try {
       const { email } = req.body;
@@ -75,8 +85,8 @@ class AuthController {
 
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     try {
-      const { token, newPassword } = req.body;
-      await authService.resetPassword(token, newPassword);
+      const { token, password } = req.body;
+      await authService.resetPassword(token, password);
       return successResponse(res, 'Password reset successful');
     } catch (error) {
       next(error);

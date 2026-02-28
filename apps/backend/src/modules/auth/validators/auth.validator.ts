@@ -35,6 +35,13 @@ export const registerSchema = Joi.object({
       'string.min': 'Full name must be at least 2 characters',
       'any.required': 'Full name is required',
     }),
+    phoneNumber: Joi.string()
+      .pattern(/^\+?[1-9]\d{6,14}$/)
+      .optional()
+      .allow('')
+      .messages({
+        'string.pattern.base': 'Please provide a valid phone number with country code (e.g. +254712345678)',
+      }),
     spiritualJourneyStage: Joi.string()
       .valid(...Object.values(SpiritualJourneyStage))
       .optional(),
@@ -64,6 +71,22 @@ export const resendVerificationSchema = Joi.object({
       'string.email': 'Please provide a valid email address',
       'any.required': 'Email is required',
     }),
+  }),
+});
+
+export const resendViaSmsSchema = Joi.object({
+  body: Joi.object({
+    email: Joi.string().email().required().messages({
+      'string.email': 'Please provide a valid email address',
+      'any.required': 'Email is required',
+    }),
+    phoneNumber: Joi.string()
+      .pattern(/^\+?[1-9]\d{6,14}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Please provide a valid phone number with country code (e.g. +254712345678)',
+        'any.required': 'Phone number is required',
+      }),
   }),
 });
 

@@ -2,6 +2,7 @@ import User from '../../../database/models/user.model';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { emailService } from '../../../shared/utils/email.util';
+import { smsService } from '../../../shared/utils/sms.service';
 import { jwtUtil } from '../../../shared/utils/jwt.util';
 import { logger } from '../../../shared/utils/logger.util';
 
@@ -10,6 +11,7 @@ interface RegisterData {
   username: string;
   password: string;
   fullName: string;
+  phoneNumber?: string;
   spiritualJourneyStage?: string;
   denomination?: string;
   country?: string;
@@ -55,28 +57,25 @@ class AuthService {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(data.password, salt);
 
-      const verificationCode = this.generateVerificationCode();
-      const verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-
       const user = await User.create({
         email: data.email,
         username: data.username,
         passwordHash: hashedPassword,
         fullName: data.fullName,
+        phoneNumber: data.phoneNumber || null,
         spiritualJourneyStage: data.spiritualJourneyStage || 'new_believer',
         denomination: data.denomination,
         country: data.country,
         timezone: data.timezone,
-        emailVerified: false,
-        emailVerificationToken: verificationCode,
-        emailVerificationExpires: verificationExpires,
+        emailVerified: true,
         role: 'user' as any,
         status: 'active' as any,
       } as any);
 
-      await emailService.sendVerificationEmail(user.email, verificationCode, user.username);
+      // Send welcome email (non-blocking — failure doesn't break registration)
+      emailService.sendWelcomeEmail(user.email, user.username).catch(() => {});
 
-      logger.info(`User registered: ${user.email}, verification code sent`);
+      logger.info(`User registered: ${user.email}`);
 
       return {
         user: {
@@ -85,7 +84,7 @@ class AuthService {
           username: user.username,
           fullName: user.fullName,
         },
-        needsVerification: true,
+        needsVerification: false,
       };
     } catch (error) {
       logger.error('Registration error:', error);
@@ -169,6 +168,41 @@ class AuthService {
     }
   }
 
+  async resendViaSms(email: string, phoneNumber: string): Promise<boolean> {
+    try {
+      const user = await User.findOne({ where: { email } });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      if (user.emailVerified) {
+        throw new Error('Email already verified');
+      }
+
+      const verificationCode = this.generateVerificationCode();
+      const verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+
+      await user.update({
+        emailVerificationToken: verificationCode,
+        emailVerificationExpires: verificationExpires,
+        phoneNumber,
+      });
+
+      const smsSent = await smsService.sendVerificationSms(phoneNumber, verificationCode);
+
+      if (!smsSent) {
+        throw new Error('SMS service is not configured. Please contact support or use email verification.');
+      }
+
+      logger.info(`Verification code sent via SMS to: ${phoneNumber}`);
+      return true;
+    } catch (error) {
+      logger.error('Resend via SMS error:', error);
+      throw error;
+    }
+  }
+
   async login(emailOrUsername: string, password: string, rememberMe: boolean = false): Promise<LoginResult> {
     try {
       const user = await User.findOne({
@@ -189,10 +223,6 @@ class AuthService {
 
       if (!isMatch) {
         throw new Error('Invalid credentials');
-      }
-
-      if (!user.emailVerified) {
-        throw new Error('Please verify your email before logging in');
       }
 
       await user.update({ lastLoginAt: new Date() });
