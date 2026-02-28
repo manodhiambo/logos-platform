@@ -14,7 +14,8 @@ export const searchBible = async (req: Request, res: Response) => {
       });
     }
 
-    const results = await bibleService.searchVerses(searchQuery, translation, limit);
+    const page = parseInt((req.query.page as string) || '1');
+    const results = await bibleService.searchVerses(searchQuery, translation, page, limit);
     
     return res.status(200).json({
       success: true,

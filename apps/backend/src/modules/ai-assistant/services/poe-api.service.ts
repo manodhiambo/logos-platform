@@ -45,6 +45,37 @@ class PoeApiService {
     this.primaryBotName = 'Claude-3-Haiku';
   }
 
+  /** Try Groq API — free tier at console.groq.com */
+  private async callGroq(message: string, history: PoeMessage[]): Promise<string> {
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) throw new Error('GROQ_API_KEY not set');
+
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...history.map(msg => ({
+        role: msg.role === 'bot' ? 'assistant' : 'user',
+        content: msg.content,
+      })),
+      { role: 'user', content: message },
+    ];
+
+    const response = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      { model: 'llama-3.3-70b-versatile', messages, max_tokens: 1024 },
+      {
+        headers: {
+          'Authorization': `Bearer ${groqApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+
+    const text = response.data.choices?.[0]?.message?.content || '';
+    if (!text) throw new Error('Empty Groq response');
+    return text;
+  }
+
   /** Try Anthropic SDK directly — most reliable */
   private async callAnthropic(message: string, history: PoeMessage[]): Promise<string> {
     if (!this.anthropicApiKey) {
@@ -102,7 +133,19 @@ class PoeApiService {
       }
     }
 
-    // 2. Try POE with multiple bot names
+    // 2. Try Groq (free tier — sign up at console.groq.com)
+    if (process.env.GROQ_API_KEY) {
+      try {
+        logger.info('Using Groq API for AI response');
+        const text = await this.callGroq(message, conversationHistory);
+        return { text, id: `groq_${Date.now()}` };
+      } catch (error: any) {
+        logger.error('Groq API failed:', error.message);
+        // Fall through to POE
+      }
+    }
+
+    // 3. Try POE with multiple bot names
     if (this.poeApiKey) {
       const botsToTry = [this.primaryBotName, ...POE_BOTS.filter(b => b !== this.primaryBotName)];
 
