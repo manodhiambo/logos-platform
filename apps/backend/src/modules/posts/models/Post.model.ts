@@ -59,8 +59,9 @@ Post.init(
       allowNull: false,
     },
     mediaUrls: {
-      type: DataTypes.ARRAY(DataTypes.STRING),
+      type: DataTypes.JSONB,
       allowNull: true,
+      defaultValue: [],
       field: 'media_urls',
     },
     postType: {

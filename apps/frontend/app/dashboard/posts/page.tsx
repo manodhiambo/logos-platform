@@ -403,8 +403,8 @@ export default function PostsPage() {
 
   const fetchSuggested = async () => {
     try {
-      const r = await apiClient.get('/friendships/find?search=a&limit=6');
-      setSuggestedUsers((r.data?.data?.users || []).slice(0, 5));
+      const r = await apiClient.get('/friendship/users/search?query=a&limit=6');
+      setSuggestedUsers((r.data?.data || []).slice(0, 5));
     } catch { /* silent */ }
   };
 
